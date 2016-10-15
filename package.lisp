@@ -1,8 +1,11 @@
 
 (defpackage #:ftw
   (:use #:cl #:cffi)
-  (:export #:const
+  (:export ;; constants.lisp
+           #:const
            #:logior-consts
+
+	   ;; ffi.lisp 
            #:switch
            #:with-wide-string
            #:memset
@@ -227,6 +230,47 @@
            #:system-parameters-info
 	   #:set-focus
 	   #:get-focus 
+	   #:createstruct
+	   #:createstruct-param
+	   #:createstruct-instance
+	   #:createstruct-menu
+	   #:createstruct-parent-hwnd
+	   #:createstruct-cy
+	   #:createstruct-cx
+	   #:createstruct-y
+	   #:createstruct-x
+	   #:createstruct-styles
+	   #:createstruct-name
+	   #:createstruct-class-name
+	   #:createstruct-ex-styles
+	   #:foreign-createstruct
+	   #:is-dialog-message
+	   #:get-dc 
+	   #:release-dc 
+	   #:create-dialog 
+	   #:dialog-box 
+	   #:end-dialog
+	   #:enable-window 
+	   #:get-class-info
+	   #:wndclassex
+	   #:wndclassex-size
+	   #:wndclassex-style
+	   #:wndclassex-wndproc
+	   #:wndclassex-class-extra
+	   #:wndclassex-wnd-extra
+	   #:wndclassex-instance
+	   #:wndclassex-icon
+	   #:wndclassex-cursor
+	   #:wndclassex-brush
+	   #:wndclassex-menu-name
+	   #:wndclassex-class-name
+	   #:wndclassex-icon-small
+	   #:default-dialog-proc
+	   #:is-window
+	   
+	   ;; ftw.lisp 
+	   #:set-default-font 
+	   
            ))
            
            

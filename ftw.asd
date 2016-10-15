@@ -10,7 +10,8 @@
   :components
   ((:file "package")
    (:file "constants")
-   (:file "ffi"))
+   (:file "ffi")
+   (:file "ftw"))
   :depends-on (:cffi :alexandria))
 
 

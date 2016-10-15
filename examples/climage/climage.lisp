@@ -16,10 +16,11 @@
    (id :initarg :id :initform 0 :reader window-id)))
 (defmethod print-object ((win window) stream)
   (print-unreadable-object (win stream :type t)
-    (format stream ":NAME ~S :ID ~S :HWND 0x~X~%" 
+    (format stream ":NAME ~S :ID ~S :HWND ~X" 
 	    (window-name win)
 	    (window-id win)
-	    (pointer-address (window-hwnd win)))))
+	    (when (window-hwnd win) 
+	      (pointer-address (window-hwnd win))))))
 
 (defun add-window (win)
   (push win *windows*))
@@ -37,86 +38,124 @@
     (do-external-symbols (sym pkg)
       (pushnew sym syms))
     syms))
+		 
+(defun add-menu-bar (hwnd menus)
+  (labels ((process-menu (parent menu)
+	     (destructuring-bind (type sym flags &key name id children) menu
+	       (ecase type
+		 (:menu
+		  (let ((m (create-menu)))
+		    (dolist (child children)
+		      (process-menu m child))
+		    (append-menu parent flags m name)))
+		 (:item
+		  (append-menu parent flags (or id 0) name)
+		  (add-window (make-instance 'window :name sym :id (or id 0))))))))
 
+    (let ((bar (create-menu)))
+      (dolist (menu menus)
+	(process-menu bar menu))
 
-(defun climage-create (hwnd)
+      (set-menu hwnd bar))))
+
+(defparameter *id-counter* 0)
+(defun genid ()
+  (incf *id-counter*)
+  *id-counter*)
+
+(defun climage-create (hwnd cs)
   "On creation we do: 
  * add menu
  * add static windows for labels etc
  * add listbox for packages 
  * add listbox for symbols 
 "
-  (let ((menu-bar (create-menu)))
-    (let ((file (create-menu)))
-      (append-menu file '(:string) 1 "&Quit")
-      (add-window (make-instance 'window :name 'quit-menu-item :id 1))
-      (append-menu menu-bar '(:popup) file "&File"))
-    ;; .... add other menus ....
-    (set-menu hwnd menu-bar))
+
+  (format t "CS: ~S~%" cs)
+
+  (add-menu-bar hwnd `((:menu file-menu (:popup) :name "&File"
+			      :children 
+			      ((:item find-menu-item (:string) 
+				      :name "&Find" 
+				      :id ,(genid))
+			       (:item separator1 (:separator))
+			       (:item quit-menu-item (:string) 
+				      :name "&Quit" :id ,(genid))))))
 
   ;; package listbox
-  (let ((default-font (get-stock-object :default-gui-font)))
-    (let ((h (create-window :static
-                            :window-name "Packages"
-                            :styles (logior-consts +ws-visible+ +ws-child+)
-                            :x 25 :y 25 :width 200 :height 20
-                            :parent hwnd)))
-      (add-window (make-instance 'window :name 'pkg-label :hwnd h))
-      (send-message h (const +wm-setfont+) :wparam (pointer-address default-font)))
-    
-    (let ((h 
-	   (create-window :listbox
-			  :styles (logior-consts +ws-child+ +ws-visible+ +lbs-notify+ +ws-vscroll+)
-			  :x 25 :y 50 :width 200 :height 350
-			  :parent hwnd
-			  :menu 2)))
-      (add-window (make-instance 'window :name 'pkg-listbox :hwnd h :id 2))
-      
-      (send-message h (const +wm-setfont+) :wparam (pointer-address default-font))
-      
-      (setf *pkg-list* (mapcar #'package-name (list-all-packages)))
-      (dolist (pkg *pkg-list*)
-	(with-wide-string (s pkg)
-	  (send-message h (const +lb-addstring+) :lparam s))))
-    
-    ;; symbol listbox 
-    (let ((h (create-window :static
-                            :window-name "Symbols"
-                            :styles (logior-consts +ws-visible+ +ws-child+)
-                            :x 250 :y 25 :width 300 :height 20
-                            :parent hwnd)))
-      (add-window (make-instance 'window :name 'sym-label :hwnd h))
-      (send-message h (const +wm-setfont+) :wparam (pointer-address default-font)))
-
-    (let ((h 
-	   (create-window :listbox
-			  :styles (logior-consts +ws-child+ +ws-visible+ +lbs-notify+ +ws-vscroll+)
-			  :x 250 :y 50 :width 300 :height 350
-			  :parent hwnd
-			  :menu 3)))
-      (add-window (make-instance 'window :name 'sym-listbox :hwnd h :id 3))
-      
-      (send-message h (const +wm-setfont+) :wparam (pointer-address default-font))
-
-      (setf *sym-list* (get-sym-list (first *pkg-list*)))
-      (dolist (sym *sym-list*)
-	(with-wide-string (s (symbol-name sym))
-	  (send-message h (const +lb-addstring+) :lparam s))))
-    
-    (let ((h 
-	   (create-window :static
-			  :window-name ""
-			  :styles (logior-consts +ws-child+ +ws-visible+)
-			  :x 575 :y 50 :width 400 :height 350
+  (let ((h (create-window :static
+			  :window-name "Packages"
+			  :styles (logior-consts +ws-visible+ +ws-child+)
+			  :x 25 :y 25 :width 200 :height 20
 			  :parent hwnd)))
-      (add-window (make-instance 'window :name 'sym-static :hwnd h))
-      (send-message h (const +wm-setfont+) :wparam (pointer-address default-font)))))
-  
-  
+    (add-window (make-instance 'window :name 'pkg-label :hwnd h))
+    (set-default-font h))
+    
+  (let* ((id (genid))
+	 (h 
+	  (create-window :listbox
+			 :styles (logior-consts +ws-child+ +ws-visible+ +lbs-notify+ +ws-vscroll+)
+			 :x 25 :y 50 :width 200 :height 350
+			 :parent hwnd
+			 :menu id)))
+    (add-window (make-instance 'window :name 'pkg-listbox :hwnd h :id id))
+    (set-default-font h)
+      
+    (setf *pkg-list* (mapcar #'package-name (list-all-packages)))
+    (dolist (pkg *pkg-list*)
+      (with-wide-string (s pkg)
+	(send-message h (const +lb-addstring+) :lparam s))))
+    
+  ;; symbol listbox 
+  (let ((h (create-window :static
+			  :window-name "Symbols"
+			  :styles (logior-consts +ws-visible+ +ws-child+)
+			  :x 250 :y 25 :width 300 :height 20
+			  :parent hwnd)))
+    (add-window (make-instance 'window :name 'sym-label :hwnd h))
+    (set-default-font hwnd))
+
+  (let* ((id (genid))
+	 (h 
+	  (create-window :listbox
+			 :styles (logior-consts +ws-child+ +ws-visible+ +lbs-notify+ +ws-vscroll+)
+			 :x 250 :y 50 :width 300 :height 350
+			 :parent hwnd
+			 :menu id)))
+    (add-window (make-instance 'window :name 'sym-listbox :hwnd h :id id))
+    (set-default-font h)
+
+    (setf *sym-list* (get-sym-list (first *pkg-list*)))
+    (dolist (sym *sym-list*)
+      (with-wide-string (s (symbol-name sym))
+	(send-message h (const +lb-addstring+) :lparam s))))
+    
+  (let ((h 
+	 (create-window :static
+			:window-name ""
+			:styles (logior-consts +ws-child+ +ws-visible+)
+			:x 575 :y 50 :width 400 :height 350
+			:parent hwnd)))
+    (add-window (make-instance 'window :name 'sym-static :hwnd h))
+    (set-default-font h)))  
+
+(defwndproc find-dlgproc (hwnd msg wparam lparam)
+  (format t "FIND-WNDPROC HWND ~S MSG ~S WPARAM ~S LPARAM ~S~%"
+	  hwnd msg wparam lparam)
+  (switch msg
+    ((const +wm-initdialog+)
+     1)
+    ((const +wm-command+)
+     (when (= (loword wparam) 1)
+       (end-dialog hwnd))
+     1)
+    (t 
+     0)))
+
 (defun climage-command (hwnd wparam)
   (let ((window (window-by-id (loword wparam))))
     (when window 
-      (ecase (window-name window)
+      (case (window-name window)
 	(quit-menu-item 
 	 (send-message hwnd (const +wm-close+)))
 	(pkg-listbox 
@@ -137,7 +176,33 @@
 	     ;; print info about the symbol
 	     (set-window-text (window-hwnd (window-by-name 'sym-static))
 			      (with-output-to-string (s)
-				(describe (nth sel *sym-list*) s))))))))))
+				(describe (nth sel *sym-list*) s))))))
+	(find-menu-item
+	 (dialog-box (callback find-dlgproc)
+		     `((:class-name :button
+			:id 1
+			:x 10 :y 35 :cx 40 :cy 10
+			:styles ,(logior-consts +ws-child+ +ws-visible+
+						+bs-pushbutton+)
+			:title "OK")
+		       (:class-name :static
+			:x 10 :y 10 :cx 40 :cy 10
+			:id 2
+			:styles ,(logior-consts +ws-child+ +ws-visible+
+						+ss-left+)
+			:title "Symbol")
+		       (:class-name :edit
+			:x 50 :y 10 :cx 50 :cy 10
+			:id 3
+			:styles ,(logior-consts +ws-child+ +ws-visible+)))
+		     :hwnd hwnd
+		     :styles (logior-consts +ws-popup+ +ws-border+ +ws-sysmenu+
+					    +ds-modalframe+ +ws-caption+
+					    +ws-visible+
+					    +ds-setfont+)
+		     :title "Find Dialog"
+		     :point-size 10 :font "Tahoma" 
+		     :x 50 :y 50 :cx 125 :cy 75))))))
 
 (defun climage-size (hwnd wparam lparam)
   (declare (ignore wparam hwnd))
@@ -161,7 +226,7 @@
 (defwndproc climage-wndproc (hwnd msg wparam lparam)
   (switch msg
     ((const +wm-create+)
-     (climage-create hwnd))
+     (climage-create hwnd (foreign-createstruct (make-pointer lparam))))
     ((const +wm-command+)
      (climage-command hwnd wparam))
     ((const +wm-size+)
@@ -190,7 +255,11 @@
              (let ((r (get-message msg)))
                (cond
                  ((= r 0) (setf done t))
-                 (t
+		 ((or (not (is-window hwnd))
+		      (not (is-dialog-message hwnd msg)))
                   (translate-message msg)
                   (dispatch-message msg))))))
       (unregister-class "CLIMAGE"))))
+
+
+

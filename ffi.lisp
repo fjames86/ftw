@@ -1,4 +1,8 @@
 
+;;; This file defines a very thin FFI layer to the underlying User32.dll Gdi32.dll APIs.
+;;; It should be enough to translate Win32 programs written in C into Lisp esentially directly. 
+;;; We can define higher level wrappers elsewhere. 
+
 (in-package #:ftw)
 
 (defmacro switch (value &rest clauses)
@@ -36,9 +40,6 @@
 					     flags))))))
 	     ,gs)
 	   ,gplace))))
-
-;; we start of by defining all the primitives we need.
-;; These include GetMessage and associated structures.
 
 (define-foreign-library user32
   (t (:default "User32")))
@@ -104,6 +105,10 @@
 (defun memset (p size &optional (val 0))
   (dotimes (i size)
     (setf (mem-aref p :uint8 i) val)))
+
+(defun memcpy (dest source size)
+  (dotimes (i size)
+    (setf (mem-aref dest :uint8 i) (mem-aref source :uint8))))
 
 ;; ----------------------------------------------
 
@@ -341,7 +346,26 @@ WPARAM, LPARAM ::= additional message data.
   (menu-name :pointer)
   (class-name :pointer)
   (icon-small :pointer))
-  
+(defstruct wndclassex
+  size style wndproc class-extra wnd-extra
+  instance icon cursor brush menu-name class-name icon-small)
+(defun foreign-wndclassex (p)
+  (make-wndclassex
+   :size (foreign-slot-value p '(:struct wndclassex) 'size)
+   :style (foreign-slot-value p '(:struct wndclassex) 'style)
+   :wndproc (foreign-slot-value p '(:struct wndclassex) 'wndproc)
+   :class-extra (foreign-slot-value p '(:struct wndclassex) 'cls-extra)
+   :wnd-extra (foreign-slot-value p '(:struct wndclassex) 'wnd-extra)
+   :instance (foreign-slot-value p '(:struct wndclassex) 'instance)
+   :icon (foreign-slot-value p '(:struct wndclassex) 'icon)
+   :cursor (foreign-slot-value p '(:struct wndclassex) 'cursor)
+   :brush (foreign-slot-value p '(:struct wndclassex) 'brush)
+   :menu-name (foreign-slot-value p '(:struct wndclassex) 'menu-name)
+   :class-name (foreign-string-to-lisp
+		(foreign-slot-value p '(:struct wndclassex) 'class-name)
+		:encoding :ucs-2le)
+   :icon-small (foreign-slot-value p '(:struct wndclassex) 'icon-small)))
+
 (defcfun (%register-class "RegisterClassExW" :convention :stdcall)
     :uint16
   (class :pointer))
@@ -432,22 +456,60 @@ WPARAM, LPARAM ::= additional message data.
   (instance :pointer)
   (param :pointer))
 
+(defcstruct createstruct 
+  (param :pointer)
+  (instance :pointer)
+  (menu :pointer)
+  (parent-hwnd :pointer)
+  (cy :int32)
+  (cx :int32)
+  (y :int32)
+  (x :int32)
+  (styles :int32)
+  (name :pointer)
+  (class-name :pointer)
+  (ex-styles :uint32))
+(defstruct createstruct 
+  param instance menu parent-hwnd 
+  cy cx y x styles name class-name ex-styles)
+(defun foreign-createstruct (p)
+  (make-createstruct 
+   :param (foreign-slot-value p '(:struct createstruct) 'param)
+   :instance (foreign-slot-value p '(:struct createstruct) 'instance)
+   :menu (foreign-slot-value p '(:struct createstruct) 'menu)
+   :parent-hwnd (foreign-slot-value p '(:struct createstruct) 'parent-hwnd)
+   :cy (foreign-slot-value p '(:struct createstruct) 'cy)
+   :cx (foreign-slot-value p '(:struct createstruct) 'cx)
+   :y (foreign-slot-value p '(:struct createstruct) 'y)
+   :x (foreign-slot-value p '(:struct createstruct) 'x)
+   :styles (foreign-slot-value p '(:struct createstruct) 'styles)
+   :name (foreign-string-to-lisp
+	   (foreign-slot-value p '(:struct createstruct) 'name)
+	   :encoding :ucs-2le)
+   :class-name (foreign-string-to-lisp 
+	   (foreign-slot-value p '(:struct createstruct) 'class-name)
+	   :encoding :ucs-2le)
+   :ex-styles (foreign-slot-value p '(:struct createstruct) 'ex-styles)))
+
+(defun resolve-window-class-name (class-name)
+  (cond
+    ((symbolp class-name)
+     (ecase class-name
+       (:button "BUTTON")
+       (:combobox "COMBOBOX")
+       (:edit "EDIT")
+       (:listbox "LISTBOX")
+       (:mdi-client "MDICLIENT")
+       (:rich-edit "RichEdit")
+       (:rich-edit-class "RICHEXIT_CLASS")
+       (:scroll-bar "SCROLLBAR")
+       (:static "STATIC")
+       (:status "msctls_statusbar32")))
+    (t
+     class-name)))
+
 (defun create-window (class-name &key window-name styles ex-styles x y width height parent menu instance param)
-  (with-wide-string (cls-name (cond
-				((symbolp class-name)
-				 (ecase class-name
-				   (:button "BUTTON")
-				   (:combobox "COMBOBOX")
-				   (:edit "EDIT")
-				   (:listbox "LISTBOX")
-				   (:mdi-client "MDICLIENT")
-				   (:rich-edit "RichEdit")
-				   (:rich-edit-class "RICHEXIT_CLASS")
-				   (:scroll-bar "SCROLLBAR")
-				   (:static "STATIC")
-				   (:status "msctls_statusbar32")))
-				(t
-				 class-name)))
+  (with-wide-string (cls-name (resolve-window-class-name class-name))
     (with-wide-string (wnd-name (or window-name ""))
       (let ((hwnd
 	     (%create-window-ex (mergeflags ex-styles
@@ -2434,11 +2496,6 @@ Return is keywork specifying button user clicked."
 (defun hiword (lparam)
   (ash (logand lparam #xffff0000) -16))
 
-;; (defun hd (pointer count)
-;;   (dotimes (i count)
-;;     (format t "~2,'0X " (mem-aref pointer :uint8 i)))
-;;   (terpri))
-
 (defcstruct nmhdr
   (hwnd :pointer)
   (id lparam)
@@ -2990,3 +3047,307 @@ Return is keywork specifying button user clicked."
 
 (defun get-focus ()
   (%get-focus))
+
+(defcfun (%is-dialog-message "IsDialogMessage" :convention :stdcall)
+    :boolean
+  (hwnd :pointer)
+  (msg :pointer))
+
+(defun is-dialog-message (hwnd msg)
+  (with-foreign-object (m '(:struct msg))
+    (msg-foreign msg m)
+    (%is-dialog-message hwnd m)))
+
+(defcfun (%get-dc "GetDC" :convention :stdcall) :pointer
+  (hwnd :pointer))
+
+(defun get-dc (&optional hwnd)
+  (%get-dc (or hwnd (null-pointer))))
+
+(defcfun (%release-dc "ReleaseDC" :convention :stdcall) 
+    :int32
+  (hwnd :pointer)
+  (hdc :pointer))
+
+(defun release-dc (hdc &optional hwnd)
+  (%release-dc hdc (or hwnd (null-pointer))))
+
+
+(defun hd (p size)
+  (dotimes (i size)
+    (when (and (not (zerop i))
+	       (zerop (mod i 16)))
+      (terpri))
+    (format t "~2,'0X " (mem-ref p :uint8 i)))
+  (terpri))
+
+
+;; (defcstruct dlgitemtemplate 
+;;   (styles :uint32)
+;;   (ex-styles :uint32)
+;;   (x :uint16)
+;;   (y :uint16)
+;;   (cx :uint16)
+;;   (cy :uint16)
+;;   (id :uint16))
+;; followed by class, title and creation data
+;; creation data is passed to the wm_create message as the lparameter but we don't need to use this
+
+;; 
+(defun encode-wide-string-to-foreign (string p offset)
+  (with-wide-string (s string)
+    (do ((i 0 (+ i 2))
+	 (done nil))
+	(done)
+      (let ((val (mem-ref s :uint16 i)))
+	(setf (mem-ref p :uint16 offset) val)
+	(incf offset 2)
+	(when (zerop val)
+	  (setf done t)))))
+  offset)
+
+(defun dlgitemtemplate-foreign (p &key ex-styles styles x y cx cy id class-name title)
+  (let ((offset 0))
+    (setf (mem-ref p :uint32 offset) (or styles 0))
+    (incf offset 4)
+
+    (setf (mem-ref p :uint32 offset) (or ex-styles 0))
+    (incf offset 4)
+
+    (setf (mem-ref p :uint16 offset) (or x 0))
+    (incf offset 2)
+    
+    (setf (mem-ref p :uint16 offset) (or y 0))
+    (incf offset 2)
+
+    (setf (mem-ref p :uint16 offset) (or cx 0))
+    (incf offset 2)
+
+    (setf (mem-ref p :uint16 offset) (or cy 0))
+    (incf offset 2)
+
+    (setf (mem-ref p :uint16 offset) (or id 0))
+    (incf offset 2)
+
+    ;; followed by class title and extra count (always set extracount to 0)
+    (cond
+      ((keywordp class-name)
+       ;; encode special codes 
+       (setf (mem-ref p :uint16 offset) #xffff)
+       (incf offset 2)
+       (setf (mem-ref p :uint16 offset)
+	     (ecase class-name
+	       (:button #x80)
+	       (:edit #x81)
+	       (:static #x82)
+	       (:listbox #x83)
+	       (:scroll-bar #x84)
+	       (:combobox #x85)))
+       (incf offset 2))
+      (t
+       ;; encode string and copy into buffer
+       (let ((of (encode-wide-string-to-foreign class-name p offset)))
+	 (setf offset of))))
+
+    ;; title 
+    (cond
+      ((null title)
+       (setf (mem-ref p :uint16 offset) 0)
+       (incf offset 2))
+      (t
+       (let ((of (encode-wide-string-to-foreign title p offset)))
+	 (setf offset of))))
+
+    ;; extracount 
+    (setf (mem-ref p :uint16 offset) 0)
+    (incf offset 2)
+    
+    (unless (zerop (mod offset 4))
+      (incf offset (- 4 (mod offset 4))))
+
+    offset))
+
+;; (defcstruct dlgtemplate 
+;;   (styles :uint32)
+;;   (ex-styles :uint32)
+;;   (count :uint16)
+;;   (x :uint16)
+;;   (y :uint16)
+;;   (cx :uint16)
+;;   (cy :uint16))
+;; followed by menu, class and title strings 
+;; we don't use the menu 
+;; when ds_setfont style is specified, followed by font size (uint16) and font name (variable length string)
+
+  
+(defun dlgtemplate-foreign (p controls &key styles ex-styles x y cx cy class-name title point-size font)
+
+  (let ((offset 0))
+    (setf (mem-ref p :uint32 offset) (or styles 0))
+    (incf offset 4)
+
+    (setf (mem-ref p :uint32 offset) (or ex-styles 0))
+    (incf offset 4)
+
+    (setf (mem-ref p :uint16 offset) (length controls))
+    (incf offset 2)
+
+    (setf (mem-ref p :uint16 offset) (or x 0))
+    (incf offset 2)
+    (setf (mem-ref p :uint16 offset) (or y 0))
+    (incf offset 2)
+    (setf (mem-ref p :uint16 offset) (or cx 0))
+    (incf offset 2)
+    (setf (mem-ref p :uint16 offset) (or cy 0))
+    (incf offset 2)
+    
+    ;; always no menu
+    (setf (mem-ref p :uint16 offset) 0)
+    (incf offset 2)
+
+    ;; class name 
+    (cond
+      (class-name
+       (let ((of (encode-wide-string-to-foreign class-name p offset)))
+	 (setf offset of)))
+      (t 
+       (setf (mem-ref p :uint16 offset) 0)
+       (incf offset 2)))
+
+    ;; title 
+    (cond
+      (title
+       (let ((of (encode-wide-string-to-foreign title p offset)))
+	 (setf offset of)))
+      (t 
+       (setf (mem-ref p :uint16 offset) 0)
+       (incf offset 2)))
+
+    ;; encode point size and font name, but only if ds-setfont style set 
+    (unless (zerop (logand (or styles 0) (const +ds-setfont+)))
+      (setf (mem-ref p :uint16 offset) (or point-size 12))
+      (incf offset 2)
+      (let ((of (encode-wide-string-to-foreign (or font "Tahoma") p offset)))
+	(setf offset of)))
+      
+    ;; align to dword 
+    (unless (zerop (mod offset 4))
+      (incf offset (- 4 (mod offset 4))))
+
+    ;; encode each control
+    (dolist (control controls)
+      (let ((o (apply #'dlgitemtemplate-foreign 
+		      (inc-pointer p offset)
+		      control)))
+	(incf offset o)))
+
+    offset))
+
+(defcfun (%create-dialog-indirect-param "CreateDialogIndirectParamW" :convention :stdcall)
+    :pointer
+  (instance :pointer)
+  (template :pointer)
+  (hwnd :pointer)
+  (proc :pointer)
+  (lparam lparam))
+
+(defun create-dialog (wndproc controls &key instance hwnd lparam styles ex-styles x y cx cy class-name title point-size font)
+  (with-foreign-object (buffer :uint8 (* 32 1024))
+    (dlgtemplate-foreign buffer controls 
+			 :styles styles 
+			 :ex-styles ex-styles
+			 :x x :y y :cx cx :cy cy 
+			 :class-name class-name 
+			 :title title
+			 :point-size point-size
+			 :font font)
+    
+    (%create-dialog-indirect-param (or instance (get-module-handle))
+				   buffer 
+				   (or hwnd (null-pointer))
+				   wndproc 
+				   (or lparam 0))))
+
+(defcfun (%dialog-box-indirect-param "DialogBoxIndirectParamW" :convention :stdcall)
+    :pointer
+  (instance :pointer)
+  (template :pointer)
+  (hwnd :pointer)
+  (proc :pointer)
+  (lparam lparam))
+
+(defun dialog-box (wndproc controls &key instance hwnd lparam styles ex-styles x y cx cy class-name title point-size font)
+  (with-foreign-object (buffer :uint8 (* 32 1024))
+    (dlgtemplate-foreign buffer controls 
+			 :styles styles 
+			 :ex-styles ex-styles
+			 :x x :y y :cx cx :cy cy 
+			 :class-name class-name 
+			 :title title
+			 :point-size point-size
+			 :font font)
+    
+    (%dialog-box-indirect-param (or instance (get-module-handle))
+				buffer 
+				(or hwnd (null-pointer))
+				wndproc 
+				(or lparam 0))))
+
+
+(defcfun (%end-dialog "EndDialog" :convention :stdcall) 
+    :boolean
+  (hwnd :pointer)
+  (result :pointer))
+
+(defun end-dialog (hwnd &optional result)
+  (%end-dialog hwnd 
+	       (cond
+		 ((null result) (null-pointer))
+		 ((integerp result) (make-pointer result))
+		 (t result))))
+
+
+(defcfun (%enable-window "EnableWindow" :convention :stdcall)
+    :boolean
+  (hwnd :pointer)
+  (enable :boolean))
+
+(defun enable-window (hwnd &optional enable)
+  (%enable-window hwnd enable))
+
+(defcfun (%get-class-info-ex "GetClassInfoExW" :convention :stdcall)
+    :boolean
+  (instance :pointer)
+  (class-name :pointer)
+  (wndclassex :pointer))
+
+(defun get-class-info (class-name &optional instance)
+  (with-foreign-object (w '(:struct wndclassex))
+    (with-wide-string (c (resolve-window-class-name class-name))
+      (let ((res (%get-class-info-ex (cond
+				       (instance instance)
+				       ((keywordp class-name) (null-pointer))
+				       (t (get-module-handle)))
+				     c
+				     w)))
+	(if res 
+	    (foreign-wndclassex w)
+	    (get-last-error))))))
+
+(defcfun (%def-dialog-proc "DefDlgProcW" :convention :stdcall)
+    lresult
+  (hwnd :pointer)
+  (msg :uint32)
+  (wparam wparam)
+  (lparam lparam))
+
+(defun default-dialog-proc (hwnd msg wparam lparam)
+  (%def-dialog-proc hwnd msg wparam lparam))
+
+(defcfun (%is-window "IsWindow" :convention :stdcall)
+    :boolean
+  (hwnd :pointer))
+
+(defun is-window (hwnd)
+  (%is-window hwnd))
+
