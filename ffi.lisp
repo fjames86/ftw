@@ -634,6 +634,7 @@ Return is keywork specifying button user clicked."
 					 (logior type
 						 (ecase icon
 						   (:asterisk #x00000040)
+                           (:information #x00000040)
 						   (:warning #x00000030)
 						   (:question #x00000020)
 						   (:error #x00000010)))))
