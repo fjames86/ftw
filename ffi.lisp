@@ -286,6 +286,14 @@ WPARAM, LPARAM ::= additional message data.
   (result :pointer))
        
 (defun send-message-timeout (hwnd msg &key wparam lparam flags timeout)
+  "Send message waiting up to timeout milliseconds. 
+HWND ::= window handle or HWND_BROADCAST if nil
+MSG ::= message ID 
+WPARAM, LPARAM ::= message parameters
+FLAGS ::= list of flags
+FLAG ::= :abort-if-hung | :block | :normal | :no-timeout-of-not-hung | :error-on-exit 
+TIMEOUT ::= timeout in milliseconds. 
+" 
   (with-foreign-object (result :uint32)
     (let ((ret (%send-message-timeout (or hwnd (make-pointer #xffff))
 				      msg
@@ -308,6 +316,7 @@ WPARAM, LPARAM ::= additional message data.
   (name :pointer))
 
 (defun register-window-message (name)
+  "Acquire an unused window message ID." 
   (with-wide-string (s name)
     (let ((r (%register-window-message s)))
       (if (zerop r)
@@ -375,6 +384,7 @@ WPARAM, LPARAM ::= additional message data.
   (module-name :pointer))
 
 (defun get-module-handle (&optional module-name)
+  "Get module handle also known as hinstance." 
   (with-wide-string (s (or module-name ""))
     (%get-module-handle (if module-name s (null-pointer)))))
 
@@ -384,11 +394,18 @@ WPARAM, LPARAM ::= additional message data.
   (instance :pointer))
 
 (defun unregister-class (class-name)
+  "Unregister a window class." 
   (with-wide-string (cls-name class-name)
     (%unregister-class cls-name (get-module-handle))))
 
-(defun register-class (class-name wndproc &key styles icon icon-small cursor background menu-name)
-
+(defun register-class (class-name wndproc &key styles icon icon-small cursor background)
+  "Register a window class.
+CLASS-NAME ::= string naming the class.
+WNDPROC ::= callback for the window procedure.
+STYLES ::= list of style flags or integer specifying the style bitmask.
+ICON, ICON-SMALL, CURSOR ::= handles for icons and cursor.
+BACKGROUN ::= background brush handle 
+"
   ;; unregister it first by force
   (unregister-class class-name)
   
@@ -432,8 +449,9 @@ WPARAM, LPARAM ::= additional message data.
 	    (foreign-slot-value wnd '(:struct wndclassex) 'brush)
 	    (or background (get-sys-color-brush :3d-face))
 
+        ;; we don't use default menu names because that requires resources which we don't support 
 	    (foreign-slot-value wnd '(:struct wndclassex) 'menu-name)
-	    (or menu-name (null-pointer)))
+	    (null-pointer))
 	    
 
       (setf (foreign-slot-value wnd '(:struct wndclassex) 'class-name)
@@ -509,6 +527,12 @@ WPARAM, LPARAM ::= additional message data.
      class-name)))
 
 (defun create-window (class-name &key window-name styles ex-styles x y width height parent menu instance param)
+  "Create a window.
+CLASS-NAME ::= name of the registered window class. May be a keyword naming a default class or a string.
+WINDOW-NAME ::= text associated with the window. 
+MENU ::= for popup and overlapped windows, handle to menu. For child windows, is an integer specifying 
+the window ID. 
+" 
   (with-wide-string (cls-name (resolve-window-class-name class-name))
     (with-wide-string (wnd-name (or window-name ""))
       (let ((hwnd
@@ -686,6 +710,7 @@ Return is keywork specifying button user clicked."
   (lparam lparam))
 
 (defun default-window-proc (hwnd msg wparam lparam)
+  "Default window proc for unhandled messages." 
   (%default-window-proc hwnd msg wparam lparam))
 
 (defcfun (%show-window "ShowWindow" :convention :stdcall)
@@ -694,6 +719,7 @@ Return is keywork specifying button user clicked."
   (cmd :uint32))
 
 (defun show-window (hwnd &optional cmd)
+  "Set the window show state." 
   (%show-window hwnd
 		(ecase (or cmd :show-normal)
 		(:force-minimize 11)
@@ -715,13 +741,16 @@ Return is keywork specifying button user clicked."
   (hwnd :pointer))
 
 (defun update-window (hwnd)
-  (%update-window hwnd))
+  "Update the window by sending WM_PAINT message to it." 
+  (unless (%update-window hwnd)
+    (get-last-error)))
 
 (defcfun (%destroy-window "DestroyWindow" :convention :stdcall)
     :boolean
   (hwnd :pointer))
 
 (defun destroy-window (hwnd)
+  "Destroy the specified window." 
   (%destroy-window hwnd))
 
 (defcfun (%get-stock-object "GetStockObject" :convention :stdcall)
@@ -3334,9 +3363,8 @@ Return is keywork specifying button user clicked."
 				       (t (get-module-handle)))
 				     c
 				     w)))
-	(if res 
-	    (foreign-wndclassex w)
-	    (get-last-error))))))
+        (when res 
+          (foreign-wndclassex w))))))
 
 (defcfun (%def-dialog-proc "DefDlgProcW" :convention :stdcall)
     lresult
@@ -3615,3 +3643,167 @@ Return is keywork specifying button user clicked."
 ;;   (count :uint32)
 ;;   (bmp-item :pointer))
 
+(defcfun (%get-prop "GetPropW" :convention :stdcall)
+    :pointer
+  (hwnd :pointer)
+  (name :pointer))
+
+(defun get-prop (hwnd name)
+  (with-wide-string (s name)
+    (let ((res (%get-prop hwnd s)))
+      (if (null-pointer-p res)
+          nil
+          res))))
+
+(defcfun (%set-prop "SetPropW" :convention :stdcall)
+    :boolean
+  (hwnd :pointer)
+  (name :pointer)
+  (value :pointer))
+
+(defun set-prop (hwnd name &optional value)
+  (with-wide-string (s name)
+    (let ((res (%set-prop hwnd s
+                          (cond
+                            ((null value) (null-pointer))
+                            ((integerp value) (make-pointer value))
+                            ((pointerp value) value)
+                            (t (error "Value must be integer or pointer"))))))
+      (if res
+          nil
+          (get-last-error)))))
+
+(defcfun (%remove-prop "RemovePropW" :convention :stdcall)
+    :pointer
+  (hwnd :pointer)
+  (name :pointer))
+
+(defun remove-prop (hwnd name)
+  (with-wide-string (s name)
+    (let ((res (%remove-prop hwnd s)))
+      (if (null-pointer-p res)
+          nil
+          res))))
+
+
+(defcfun (%enum-props "EnumPropsW" :convention :stdcall)
+    :int32
+  (hwnd :pointer)
+  (proc :pointer))
+
+(defvar *prop-list-tmp* nil)
+
+(defcallback (enum-props-cb :convention :stdcall) :boolean
+    ((hwnd :pointer) (s :pointer) (value :pointer))
+  (declare (ignore hwnd))
+  (push (list (foreign-string-to-lisp s :encoding :ucs-2) value)
+        *prop-list-tmp*)
+  1)
+
+(defun enum-props (hwnd)
+  (setf *prop-list-tmp* nil)
+  (%enum-props hwnd (callback enum-props-cb))
+  *prop-list-tmp*)
+
+
+(defcfun (%set-class-long-ptr "SetClassLongPtrW" :convention :stdcall)
+    :pointer
+  (hwnd :pointer)
+  (index :int32)
+  (new :pointer))
+
+(defun set-class-pointer (hwnd index &optional value)
+  (%set-class-long-ptr hwnd
+                       (cond
+                         ((keywordp index)
+                          (ecase index
+                            (:class-extra -20)
+                            (:window-exrta -18)
+                            (:background -10)
+                            (:cursor -12)
+                            (:icon -14)
+                            (:icon-small -34)
+                            (:module -16)
+                            (:menu-name -8)
+                            (:styles -26)
+                            (:wndproc -24)))
+                         ((integerp index) index)
+                         (t (error "Index must be a keyword or integer")))
+                       (cond
+                         ((null value) (null-pointer))
+                         ((integerp value) (make-pointer value))
+                         ((pointerp value) value)
+                         (t (error "Value must be integer or pointer")))))
+
+
+(defcfun (%get-class-long-pointer "GetClassLongPtrW" :convention :stdcall)
+    :pointer
+  (hwnd :pointer)
+  (index :int32))
+
+(defun get-class-pointer (hwnd index)
+  (%get-class-long-pointer hwnd
+                           (cond
+                             ((keywordp index)
+                              (ecase index
+                                (:class-extra -20)
+                                (:window-exrta -18)
+                                (:background -10)
+                                (:cursor -12)
+                                (:icon -14)
+                                (:icon-small -34)
+                                (:module -16)
+                                (:menu-name -8)
+                                (:styles -26)
+                                (:wndproc -24)))
+                             ((integerp index) index)
+                             (t (error "Index must be a keyword or integer")))))
+
+                           
+
+(defcfun (%set-window-long-pointer "SetWindowLongPtrW" :convention :stdcall)
+    :pointer
+  (hwnd :pointer)
+  (index :int32)
+  (value :pointer))
+
+(defun set-window-pointer (hwnd index &optional value)
+  (%set-window-long-pointer hwnd
+                            (cond
+                              ((keywordp index)
+                               (ecase index
+                                 (:ex-styles -20)
+                                 (:instance -6)
+                                 (:id -12)
+                                 (:styles -16)
+                                 (:userdata -21)
+                                 (:wndproc -4)))
+                              ((integerp index) index)
+                              (t (error "Index must be keyword or integer")))
+                            (cond
+                              ((null value) (null-pointer))
+                              ((integerp value) (make-pointer value))
+                              ((pointerp value) value)
+                              (t (error "Value must be integer or pointer")))))
+
+
+(defcfun (%get-window-long-pointer "GetWindowLongPtrW" :convention :stdcall)
+    :pointer
+  (hwnd :pointer)
+  (index :int32))
+
+(defun get-window-pointer (hwnd index)
+  (%get-window-long-pointer hwnd
+                            (cond
+                              ((keywordp index)
+                               (ecase index
+                                 (:ex-styles -20)
+                                 (:instance -6)
+                                 (:id -12)
+                                 (:styles -16)
+                                 (:userdata -21)
+                                 (:wndproc -4)))
+                              ((integerp index) index)
+                              (t (error "Index must be keyword or integer")))))
+
+                            

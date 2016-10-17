@@ -2,6 +2,9 @@
 ;;;; This defines a simple gui which shows current state of the Lisp image
 ;;;; symbols, memory etc
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (ql:quickload "bordeaux-threads"))
+						       
 (defpackage #:ftw.climage
   (:use #:cl #:cffi #:ftw)
   (:export #:climage))
@@ -100,7 +103,7 @@ Copyright (c) Frank James 2016.
                  :title "OK"
                  :styles ,(logior-consts +ws-child+ +ws-visible+
                                          +bs-defpushbutton+ +ws-tabstop+)
-                 :x 150 :y 75 :cx 35 :cy 15))
+                 :x 135 :y 75 :cx 50 :cy 15))
               :hwnd hwnd
               :styles (logior-consts +ws-popup+ +ws-border+ +ws-sysmenu+
                                      +ds-modalframe+ +ws-caption+ +ws-visible+
@@ -108,7 +111,6 @@ Copyright (c) Frank James 2016.
               :title "About Climage"
               :point-size 8 :font "Microsoft Sans Serif"
               :x 50 :y 50 :cx 200 :cy 100))
-  
 
 
 ;; -------------------------------------------------
@@ -257,7 +259,7 @@ Copyright (c) Frank James 2016.
          `(((:control :virtual-key) :keyf ,(window-id (window-by-name 'find-menu-item)))
            ((:control :virtual-key) :keyq ,(window-id (window-by-name 'quit-menu-item))))))
   
-  ;; package listbox
+  ;; add all the controls 
   (let ((h (create-window :static
                           :window-name "Packages"
                           :styles (logior-consts +ws-visible+ +ws-child+)

@@ -282,7 +282,15 @@
 	   #:get-menu
        #:get-sub-menu
 	   #:copy-accelerator-table
-
+       #:get-prop
+       #:set-prop
+       #:remove-prop
+       #:enum-props
+       #:set-class-pointer
+       #:get-class-pointer
+       #:set-window-pointer
+       #:get-window-pointer
+       
 	   ;; ftw.lisp 
 	   #:set-default-font 
 	   
