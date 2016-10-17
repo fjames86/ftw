@@ -1480,15 +1480,18 @@ Return is keywork specifying button user clicked."
   (vk :uint32))
 
 (defun register-hot-key (hwnd id key &optional modifiers)
-  (%register-hot-key hwnd
-		     id
-		     (mergeflags modifiers
-				 (:alt 1)
-				 (:control 2)
-				 (:no-repeat #x4000)
-				 (:shift 4)
-				 (:win 8))
-		     key))
+  (let ((res (%register-hot-key hwnd
+				id
+				(mergeflags modifiers
+					    (:alt 1)
+					    (:control 2)
+					    (:no-repeat #x4000)
+					    (:shift 4)
+					    (:win 8))
+				key)))
+    (if res
+	nil
+	(get-last-error))))
 
 (defcfun (%unregister-hot-key "UnregisterHotKey" :convention :stdcall)
     :boolean
@@ -3350,4 +3353,264 @@ Return is keywork specifying button user clicked."
 
 (defun is-window (hwnd)
   (%is-window hwnd))
+
+(defcfun (%get-dlg-item "GetDlgItem" :convention :stdcall)
+    :pointer
+  (hwnd :pointer)
+  (id :int32))
+
+(defun get-dialog-item (hwnd id)
+  (let ((res (%get-dlg-item hwnd id)))
+    (if (null-pointer-p res)
+	(get-last-error)
+	res)))
+
+(defcfun (%get-dlg-ctrl-id "GetDlgCtrlID" :convention :stdcall)
+    :int32
+  (hwnd :pointer))
+
+(defun get-dialog-control-id (hwnd)
+  (let ((res (%get-dlg-ctrl-id hwnd)))
+    (if (zerop res)
+	(get-last-error)
+	res)))
+
+
+(defcfun (%get-next-dlg-tab-item "GetNextDlgTabItem" :convention :stdcall)
+    :pointer
+  (hwnd :pointer)
+  (ctl :pointer)
+  (previous :boolean))
+
+(defun get-next-dialog-tab-item (hwnd ctl &optional previous)
+  (let ((res (%get-next-dlg-tab-item hwnd
+				     ctl
+				     previous)))
+    (if (null-pointer-p res)
+	(get-last-error)
+	res)))
+
+
+(defcfun (%map-dialog-rect "MapDialogRect" :convention :stdcall)
+    :boolean
+  (hwnd :pointer)
+  (rect :pointer))
+
+(defun map-dialog-rect (hwnd rect)
+  (with-foreign-object (r '(:struct rect))
+    (rect-foreign rect r)
+    (let ((res (%map-dialog-rect hwnd r)))
+      (if res
+	  (foreign-rect r (make-rect))
+	  (get-last-error)))))
+
+
+
+(defcfun (%get-next-dlg-group-item "GetNextDlgGroupItem" :convention :stdcall)
+    :pointer
+  (hwnd :pointer)
+  (ctl :pointer)
+  (previous :boolean))
+
+(defun get-next-dialog-group-item (hwnd &optional ctl previous)
+  (let ((res (%get-next-dlg-group-item hwnd
+				       (or ctl (null-pointer))
+				       previous)))
+    (if (null-pointer-p res)
+	(get-last-error)
+	res)))
+
+(defcfun (%get-dlg-item-text "GetDlgItemTextW" :convention :stdcall)
+    :uint32
+  (hwnd :pointer)
+  (item :int32)
+  (str :pointer)
+  (count :int32))
+
+(defun get-dialog-item-text (hwnd id)
+  (with-foreign-object (s :uint16 256)
+    (let ((res (%get-dlg-item-text hwnd id s 256)))
+      (if (zerop res)
+	  (get-last-error)
+	  (foreign-string-to-lisp s :encoding :ucs-2)))))
+
+(defcfun (%set-dlg-item-text "SetDlgItemTextW" :convention :stdcall)
+    :boolean
+  (hwnd :pointer)
+  (id :int32)
+  (s :pointer))
+
+(defun set-dialog-item-text (hwnd id text)
+  (with-wide-string (s text)
+    (let ((res (%set-dlg-item-text hwnd id s)))
+      (if res
+	  nil
+	  (get-last-error)))))
+
+(defcfun (%send-dlg-item-message "SendDlgItemMessageW" :convention :stdcall)
+    lresult
+  (hwnd :pointer)
+  (id :int32)
+  (msg :uint32)
+  (wparam wparam)
+  (lparam lparam))
+
+(defun send-dialog-item-message (hwnd id msg &key wparam lparam)
+  (%send-dlg-item-message hwnd id msg
+			  (or wparam 0)
+			  (or lparam 0)))
+
+  
+(defcstruct accel
+  (virt :uint8)
+  (key :uint16)
+  (cmd :uint16))
+
+(defcfun (%create-accelerator-table "CreateAcceleratorTableW" :convention :stdcall)
+    :pointer
+  (a :pointer)
+  (count :int32))
+
+(defun create-accelerator-table (entries)
+  (with-foreign-object (a '(:struct accel) (length entries))
+    (do ((i 0 (1+ i))
+	 (e entries (cdr e)))
+	((null e))
+      (destructuring-bind (virt key cmd) (car e)
+	(let ((p (mem-aptr a '(:struct accel) i)))
+	(setf (foreign-slot-value p '(:struct accel) 'virt)
+	      (mergeflags (if (listp virt) virt (list virt))
+	        (:alt #x10)
+		(:control #x08)
+		(:no-invert #x02)
+		(:shift #x04)
+		(:virtual-key #x01))
+	      (foreign-slot-value p '(:struct accel) 'key)
+	      (cond
+		((keywordp key) (virtual-key-code key))
+		((characterp key) (char-code key))
+		((integerp key) key)
+		(t (error "Key must be virtual key identifier, character or integer")))		
+	      (foreign-slot-value p '(:struct accel) 'cmd)
+	      cmd))))
+    (let ((ret (%create-accelerator-table a (length entries))))
+      (if (null-pointer-p ret)
+	  (get-last-error)
+	  ret))))
+
+  
+(defcfun (%destroy-accelerator-table "DestroyAcceleratorTable" :convention :stdcall)
+    :boolean
+  (accel :pointer))
+
+(defun destroy-accelerator-table (accel)
+  (%destroy-accelerator-table accel))
+
+(defcfun (%translate-accelerator "TranslateAcceleratorW" :convention :stdcall)
+    :int32
+  (hwnd :pointer)
+  (accel :pointer)
+  (msg :pointer))
+
+(defun translate-accelerator (hwnd accel msg)
+  (with-foreign-object (m '(:struct msg))
+    (msg-foreign msg m)
+    (%translate-accelerator hwnd accel m)))
+
+(defcfun (%peek-message "PeekMessageW" :convention :stdcall)
+    :boolean
+  (msg :pointer)
+  (hwnd :pointer)
+  (filter-min :uint32)
+  (filter-max :uint32)
+  (remove-msg :uint32))
+
+(defun peek-message (msg &key hwnd filter-min filter-max remove-msg
+			   msg-types)
+  (with-foreign-object (m '(:struct msg))
+    (msg-foreign msg m)
+    (let ((res (%peek-message m
+			      (or hwnd (null-pointer))
+			      (or filter-min 0)
+			      (or filter-max 0)
+			      (let ((rm 0))
+				(when remove-msg
+				  (setf rm (ecase remove-msg
+					     (:no-remove 0)
+					     (:remove #x0001)
+					     (:no-yield #x0002))))
+				(when msg-types
+				  (dolist (mt msg-types)
+				    (setf rm
+					  (logior rm
+						  (ecase mt
+						    (:input (ash +qs-input+ 16))
+						    (:paint (ash +qs-paint+ 16))
+						    (:post-message (ash (logior +qs-postmessage+ +qs-hotkey+ +qs-timer+) 16))
+						    (:send-message (ash +qs-sendmessage+ 16)))))))
+				rm))))
+      (cond
+	(res 
+	 (foreign-msg m msg)
+	 res)
+	(t
+	 (get-last-error))))))
+				  
+(defcfun (%get-menu "GetMenu" :convention :stdcall)
+    :pointer
+  (hwnd :pointer))
+
+(defun get-menu (hwnd)
+  (%get-menu hwnd))
+
+(defcfun (%get-sub-menu "GetSubMenu" :convention :stdcall)
+    :pointer
+  (hwnd :pointer)
+  (pos :int32))
+
+(defun get-sub-menu (hwnd pos)
+  (let ((res (%get-sub-menu hwnd pos)))
+    (if (null-pointer-p res)
+        nil
+        res)))
+
+(defcfun (%copy-accelerator-table "CopyAcceleratorTableW" :convention :stdcall)
+    :int32
+  (accel :pointer)
+  (p :pointer)
+  (count :int32))
+
+(defun copy-accelerator-table (accel)
+  (let ((count (%copy-accelerator-table accel (null-pointer) 0)))
+    (unless (zerop count)
+      (with-foreign-object (p '(:struct accel) count)
+	(%copy-accelerator-table accel p count)
+	(loop :for i :below count :collect
+	   (let ((a (mem-aptr p '(:struct accel) i)))
+	     (list (foreign-slot-value a '(:struct accel) 'virt)
+		   (foreign-slot-value a '(:struct accel) 'key)
+		   (foreign-slot-value a '(:struct accel) 'cmd))))))))
+
+
+;; TODO 
+;; (defcfun (%get-menu-item-info "GetMenuItemInfoW" :convention :stdcall)
+;;     :boolean
+;;   (hwnd :pointer)
+;;   (item :uint32)
+;;   (bypos :boolean)
+;;   (p :pointer))
+
+;; (defcstruct menuiteminfo
+;;   (size :uint32)
+;;   (mask :uint32)
+;;   (type :uint32)
+;;   (state :uint32)
+;;   (id :uint32)
+;;   (submenu :pointer)
+;;   (bmp-checked :pointer)
+;;   (bmp-unchecked :pointer)
+;;   (item-data :pointer)
+;;   (type-data :pointer)
+;;   (count :uint32)
+;;   (bmp-item :pointer))
 

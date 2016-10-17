@@ -267,7 +267,22 @@
 	   #:wndclassex-icon-small
 	   #:default-dialog-proc
 	   #:is-window
-	   
+	   #:get-dialog-item
+	   #:get-dialog-control-id
+	   #:get-next-dialog-tabl-item
+	   #:map-dialog-rect
+	   #:get-next-dialog-group-item
+	   #:get-dialog-item-text
+	   #:set-dialog-item-text 
+	   #:send-dialog-item-message
+	   #:create-accelerator-table
+	   #:destroy-accelerator-table 	   
+	   #:translate-accelerator
+	   #:peek-message
+	   #:get-menu
+       #:get-sub-menu
+	   #:copy-accelerator-table
+
 	   ;; ftw.lisp 
 	   #:set-default-font 
 	   

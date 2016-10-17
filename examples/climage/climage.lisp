@@ -38,7 +38,19 @@
     (do-external-symbols (sym pkg)
       (pushnew sym syms))
     syms))
-		 
+(defun change-to-package (pkg)
+  (let ((win (window-by-name 'pkg-listbox))
+	(index (position pkg *pkg-list* :test #'string-equal)))
+    (send-message (window-hwnd win)
+		  (const +lb-setcursel+)
+		  :wparam index)))
+(defun change-to-sym (sym)
+  (let ((win (window-by-name 'sym-listbox))
+	(index (position sym *sym-list* :test #'string-equal)))
+    (send-message (window-hwnd win)
+		  (const +lb-setcursel+)
+		  :wparam index)))
+  
 (defun add-menu-bar (hwnd menus)
   (labels ((process-menu (parent menu)
 	     (destructuring-bind (type sym flags &key name id children) menu
@@ -63,6 +75,8 @@
   (incf *id-counter*)
   *id-counter*)
 
+(defvar *accel* nil)
+
 (defun climage-create (hwnd cs)
   "On creation we do: 
  * add menu
@@ -70,18 +84,35 @@
  * add listbox for packages 
  * add listbox for symbols 
 "
+  (declare (ignore cs))
 
-  (format t "CS: ~S~%" cs)
-
+  (setf *windows* nil)
+  
   (add-menu-bar hwnd `((:menu file-menu (:popup) :name "&File"
 			      :children 
 			      ((:item find-menu-item (:string) 
-				      :name "&Find" 
+				      :name ,(format nil "&Find~ACtrl+F" #\tab)
 				      :id ,(genid))
 			       (:item separator1 (:separator))
 			       (:item quit-menu-item (:string) 
-				      :name "&Quit" :id ,(genid))))))
+                          :name ,(format nil "&Quit~ACtrl+Q" #\tab)
+                          :id ,(genid))))
+		       (:menu image-menu (:popup) :name "&Image"
+			      :children
+			      ((:item room-menu-item (:string)
+				      :name "&Room"
+				      :id ,(genid))
+			       (:item separator2 (:separator))
+			       (:item threads-menu-item (:string)
+				      :name "&Threads" :id ,(genid))))))
 
+
+  ;; create accelerator table for the find menu item 
+  (setf *accel*
+        (create-accelerator-table
+         `(((:control :virtual-key) :keyf ,(window-id (window-by-name 'find-menu-item)))
+           ((:control :virtual-key) :keyq ,(window-id (window-by-name 'quit-menu-item))))))
+  
   ;; package listbox
   (let ((h (create-window :static
 			  :window-name "Packages"
@@ -94,7 +125,8 @@
   (let* ((id (genid))
 	 (h 
 	  (create-window :listbox
-			 :styles (logior-consts +ws-child+ +ws-visible+ +lbs-notify+ +ws-vscroll+)
+                     :styles (logior-consts +ws-child+ +ws-visible+ +lbs-notify+ +ws-vscroll+
+                                            +ws-tabstop+)
 			 :x 25 :y 50 :width 200 :height 350
 			 :parent hwnd
 			 :menu id)))
@@ -113,12 +145,12 @@
 			  :x 250 :y 25 :width 300 :height 20
 			  :parent hwnd)))
     (add-window (make-instance 'window :name 'sym-label :hwnd h))
-    (set-default-font hwnd))
+    (set-default-font h))
 
   (let* ((id (genid))
 	 (h 
 	  (create-window :listbox
-			 :styles (logior-consts +ws-child+ +ws-visible+ +lbs-notify+ +ws-vscroll+)
+			 :styles (logior-consts +ws-child+ +ws-visible+ +lbs-notify+ +ws-vscroll+ +ws-tabstop+)
 			 :x 250 :y 50 :width 300 :height 350
 			 :parent hwnd
 			 :menu id)))
@@ -140,19 +172,31 @@
     (set-default-font h)))  
 
 (defwndproc find-dlgproc (hwnd msg wparam lparam)
-  (format t "FIND-WNDPROC HWND ~S MSG ~S WPARAM ~S LPARAM ~S~%"
-	  hwnd msg wparam lparam)
+  (declare (ignore lparam))
   (switch msg
     ((const +wm-initdialog+)
      1)
     ((const +wm-command+)
      (when (= (loword wparam) 1)
+       ;; save away the string the user chose
+       (let ((sym (get-window-text (get-dialog-item hwnd 3))))
+	 ;; parse the string to retrieve the package
+	 (let ((colon-index (position #\: sym)))
+	   (when colon-index
+	     (change-to-package (subseq sym 0 colon-index)))
+
+	   ;; set to symbol
+	   (change-to-sym 
+	    (if colon-index
+		(subseq sym (1+ colon-index))
+		sym))))
        (end-dialog hwnd))
      1)
     (t 
      0)))
 
-(defun climage-command (hwnd wparam)
+(defun climage-command (hwnd wparam lparam)
+  (declare (ignore lparam))
   (let ((window (window-by-id (loword wparam))))
     (when window 
       (case (window-name window)
@@ -183,7 +227,7 @@
 			:id 1
 			:x 10 :y 35 :cx 40 :cy 10
 			:styles ,(logior-consts +ws-child+ +ws-visible+
-						+bs-pushbutton+)
+						+bs-pushbutton+ +ws-tabstop+)
 			:title "OK")
 		       (:class-name :static
 			:x 10 :y 10 :cx 40 :cy 10
@@ -194,7 +238,7 @@
 		       (:class-name :edit
 			:x 50 :y 10 :cx 50 :cy 10
 			:id 3
-			:styles ,(logior-consts +ws-child+ +ws-visible+)))
+			:styles ,(logior-consts +ws-child+ +ws-visible+ +ws-tabstop+)))
 		     :hwnd hwnd
 		     :styles (logior-consts +ws-popup+ +ws-border+ +ws-sysmenu+
 					    +ds-modalframe+ +ws-caption+
@@ -224,14 +268,17 @@
 
     
 (defwndproc climage-wndproc (hwnd msg wparam lparam)
+;;  (format t "MSG: ~S WPARAM ~S LPARAM ~S~%" msg wparam lparam)
   (switch msg
     ((const +wm-create+)
      (climage-create hwnd (foreign-createstruct (make-pointer lparam))))
     ((const +wm-command+)
-     (climage-command hwnd wparam))
+     (climage-command hwnd wparam lparam))
     ((const +wm-size+)
      (climage-size hwnd wparam lparam))
     ((const +wm-destroy+)
+     (destroy-accelerator-table *accel*)
+     (setf *accel* nil)
      (post-quit-message)))
   (default-window-proc hwnd msg wparam lparam))
 
@@ -240,11 +287,12 @@
   (register-class "CLIMAGE" 
                   (callback climage-wndproc)
                   :background (get-sys-color-brush :3d-face)
+                  :icon (load-icon :winlogo)
                   :cursor (load-cursor :arrow))
   (let ((hwnd (create-window "CLIMAGE" 
                              :window-name "Common Lisp Image" 
                              :styles '(:overlapped-window :visible)
-                             :x 100 :y 100 :width 400 :height 400))
+                             :x 100 :y 100 :width 800 :height 400))
         (msg (make-msg)))
     (unwind-protect
          (progn
@@ -255,8 +303,7 @@
              (let ((r (get-message msg)))
                (cond
                  ((= r 0) (setf done t))
-		 ((or (not (is-window hwnd))
-		      (not (is-dialog-message hwnd msg)))
+                 ((zerop (translate-accelerator hwnd *accel* msg))
                   (translate-message msg)
                   (dispatch-message msg))))))
       (unregister-class "CLIMAGE"))))
