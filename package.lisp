@@ -290,10 +290,24 @@
        #:get-class-pointer
        #:set-window-pointer
        #:get-window-pointer
+       #:set-active-window
+       #:get-foreground-window
+       #:set-foreground-window
+       #:wait-message
+       #:get-queue-status
+       #:msg-wait-for-multiple-objects
+       #:drag-accept-files
+       #:drag-finish
+       #:drag-query-files
+       #:drag-query-point
+       #:broadcast-system-message
+       #:reply-message
        
 	   ;; ftw.lisp 
 	   #:set-default-font 
-	   
+	   #:default-message-loop
+       #:message-poll
+       
            ))
            
            

@@ -415,7 +415,7 @@ Copyright (c) Frank James 2016.
                              :window-name "Common Lisp Image" 
                              :styles '(:overlapped-window :visible)
                              :x 100 :y 100 :width 800 :height 400))
-        (msg (make-msg)))
+        (msg (make-msg)))    
     (unwind-protect
          (progn
            (show-window hwnd)

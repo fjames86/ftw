@@ -61,6 +61,11 @@
 
 (use-foreign-library comdlg32)
 
+(define-foreign-library shell32
+  (t (:default "Shell32")))
+
+(use-foreign-library shell32)
+  
 ;; -------------------- for errors ----------------------------
 
 (defcfun (%format-message "FormatMessageA" :convention :stdcall)
@@ -609,7 +614,7 @@ the window ID.
 				(or instance (get-module-handle))
 				(or param (null-pointer)))))
 	(if (null-pointer-p hwnd)
-	    (get-last-error)
+	    nil ;; (get-last-error)
 	    hwnd)))))
 
 (defcfun (%message-box "MessageBoxW" :convention :stdcall)
@@ -3807,3 +3812,161 @@ Return is keywork specifying button user clicked."
                               (t (error "Index must be keyword or integer")))))
 
                             
+
+(defcfun (%set-active-window "SetActiveWindow" :convention :stdcall)
+    :pointer
+  (hwnd :pointer))
+
+(defun set-active-window (hwnd)
+  (let ((res (%set-active-window hwnd)))
+    (if (null-pointer-p res)
+        nil
+        res)))
+
+
+(defcfun (%get-foreground-window "GetForegroundWindow" :convention :stdcall)
+    :pointer)
+
+(defun get-foreground-window ()
+  (let ((res (%get-foreground-window)))
+    (if (null-pointer-p res)
+        nil
+        res)))
+
+(defcfun (%set-foreground-window "SetForegroundWindow" :convention :stdcall)
+    :boolean
+  (hwnd :pointer))
+
+(defun set-foreground-window (hwnd)
+  (%set-foreground-window hwnd))
+
+
+(defcfun (%wait-message "WaitMessage" :convention :stdcall)
+    :boolean)
+
+(defun wait-message ()
+  (unless (%wait-message)
+    (get-last-error)))
+
+(defcfun (%get-queue-status "GetQueueStatus" :convention :stdcall)
+    :uint32
+  (flags :uint32))
+
+(defun get-queue-status (&optional flags)
+  (%get-queue-status 
+   (mergeflags (if (keywordp flags)
+                   (list flags)
+                   flags)
+     (:all +qs-allevents+)
+     (:all-input +qs-allinput+)
+     (:all-post-message +qs-allpostmessage+)
+     (:hotkey +qs-hotkey+)
+     (:input +qs-input+)
+     (:key +qs-key+)
+     (:mouse +qs-mouse+)
+     (:mouse-button +qs-mousebutton+)
+     (:mouse-move +qs-mousemove+)
+     (:paint +qs-paint+)
+     (:postmessage +qs-postmessage+)
+     (:rawinput +qs-rawinput+)
+     (:sendmessage +qs-sendmessage+)
+     (:timer +qs-timer+))))
+
+  
+    
+              
+
+(defcfun (%msg-wait-for-multiple-objects "MsgWaitForMultipleObjects" :convention :stdcall)
+    :uint32
+  (count :uint32)
+  (handles :pointer)
+  (waitall :boolean)
+  (milli :uint32)
+  (wakemask :uint32))
+
+(defun msg-wait-for-multiple-objects (&key handles wait-all-p timeout mask)
+  (with-foreign-object (hlist :pointer (length handles))
+    (do ((h handles (cdr h))
+         (i 0 (1+ i)))
+        ((null h))
+      (setf (mem-aref hlist :pointer i) (nth i handles)))
+    (%msg-wait-for-multiple-objects (length handles)
+                                    hlist
+                                    wait-all-p
+                                    (or timeout 0)
+                                    (or mask 0))))
+
+
+
+(defcfun (%drag-accept-files "DragAcceptFiles" :convention :stdcalL)
+    :void
+  (hwnd :pointer)
+  (accept :boolean))
+
+(defun drag-accept-files (hwnd &optional accept)
+  (%drag-accept-files hwnd accept))
+
+(defcfun (%drag-finish "DragFinish" :convention :stdcall)
+    :void
+  (hdrop :pointer))
+
+(defun drag-finish (hdrop)
+  (%drag-finish hdrop))
+
+(defcfun (%drag-query-file "DragQueryFileW" :convention :stdcall)
+    :uint32
+  (hdrop :pointer)
+  (index :uint32)
+  (file :pointer)
+  (count :uint32))
+
+(defun drag-query-files (hdrop)
+  "List all files that were dropped." 
+  (let ((nfiles (%drag-query-file hdrop #xffffffff (null-pointer) 0)))
+    (loop :for i :below nfiles :collect
+       (let ((count (%drag-query-file hdrop i (null-pointer) 0)))
+         (with-foreign-object (buffer :uint8 (* (1+ count) 2))
+           (%drag-query-file hdrop i buffer count)
+           (foreign-string-to-lisp buffer :encoding :ucs-2le))))))
+
+(defcfun (%drag-query-point "DragQueryPoint" :convention :stdcall)
+    :boolean
+  (hdrop :pointer)
+  (point :pointer))
+
+(defun drag-query-point (hdrop)
+  (with-foreign-object (p '(:struct point))
+    (%drag-query-point hdrop p)
+    (let ((point (list 0 0)))
+      (point-foreign point p)
+      point)))
+
+(defcfun (%broadcast-system-message "BroadcastSystemMessageW" :convention :stdcall)
+    :int32
+  (flags :uint32)
+  (recipients :pointer)
+  (msg :uint32)
+  (wparam wparam)
+  (lparam lparam))
+
+(defun broadcast-system-message (msg &key flags recipients wparam lparam)
+  (with-foreign-object (r :uint32)
+    (setf (mem-aref r :uint32)
+	  (or recipients 0))
+    (let ((res (%broadcast-system-message (or flags 0)
+					  (if recipients r (null-pointer))
+					  msg
+					  (or wparam 0)
+					  (or lparam 0))))
+      (if (= res -1)
+	  (get-last-error)
+	  (values res
+		  (when recipients (mem-aref r :uint32)))))))
+    
+(defcfun (%reply-message "ReplyMessage" :convention :stdcall)
+    :boolean
+  (lresult lresult))
+
+(defun reply-message (lresult)
+  (%reply-message lresult))
+
