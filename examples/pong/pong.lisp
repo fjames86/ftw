@@ -86,10 +86,33 @@
 		     (pos-y p))
 		 (<= (pos-y *ball*)
 		     (+ (pos-y p) *pad-height*)))
-	(setf (pos-vx *ball*)
-	      (- (* (pos-vx *ball*) 1))
-	      (pos-vy *ball*)
-	      (+ (* (pos-vy p) 0.2)  (- (* (pos-vy *ball*) 1))))))
+
+        (let* ((dy (- (/ (- (+ (pos-y p) *pad-height*)
+                            (+ (pos-y *ball*) *ball-width*))
+                         *pad-height*)
+                      0.5))
+               (fx (cos dy))
+               (fy (sin dy))
+               (f (sqrt (+ (* fx fx) (* fy fy)))))
+          ;; adjust velocities
+          ;; FIXME: this needs touching up because the mechanics aren't right,
+          ;; ball behaves strangely 
+          (setf (pos-vx *ball*)
+                (- (* (pos-vx *ball*) (/ fx f)))
+                (pos-x *ball*)
+                (if (< (pos-x *ball*) 0.5)
+                    (+ (pos-x p) *ball-width*)
+                    (- (pos-x p) *ball-width*))
+                                    
+                (pos-vy *ball*)
+                (+ (pos-vy *ball*)
+                   (* (cond
+                        ((> (pos-y p) 0.6) -1)
+                        ((< (pos-y p) 0.4) -1)
+                        (t 1))
+                      (/ fy f)
+                      (sqrt (+ (* (pos-vx *ball*) (pos-vx *ball*))
+                               (* (pos-vy *ball*) (pos-vy *ball*))))))))))
 
     (when (or (> (pos-x *ball*) *log-x*)
 	      (< (pos-x *ball*) 0)
