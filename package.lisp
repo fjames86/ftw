@@ -302,7 +302,12 @@
        #:drag-query-point
        #:broadcast-system-message
        #:reply-message
-       
+       #:create-icon
+       #:destroy-icon
+       #:draw-icon
+       #:get-device-caps
+
+
 	   ;; ftw.lisp 
 	   #:set-default-font 
 	   #:default-message-loop

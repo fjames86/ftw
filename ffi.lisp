@@ -2459,7 +2459,10 @@ Return is keywork specifying button user clicked."
   (with-foreign-object (bp :uint8 (length data))
     (dotimes (i (length data))
       (setf (mem-aref bp :uint8 i) (aref data i)))
-    (%create-bitmap width height planes bits-per-pixel bp)))
+    (%create-bitmap (truncate width 8) (truncate height 8)
+		    planes
+		    bits-per-pixel
+		    bp)))
 
 (defcfun (%get-window-text-length "GetWindowTextLengthW" :convention :stdcall)
     :int32 
@@ -3969,4 +3972,99 @@ Return is keywork specifying button user clicked."
 
 (defun reply-message (lresult)
   (%reply-message lresult))
+
+(defcfun (%create-icon "CreateIcon" :convention :stdcall)
+    :pointer
+  (instance :pointer)
+  (width :int32)
+  (height :int32)
+  (planes :uint8)
+  (bits-per-pixel :uint8)
+  (and-bits :pointer)
+  (xor-bits :pointer))
+
+(defun create-icon (and-bits xor-bits &key instance bits-per-pixel)
+  (unless bits-per-pixel (setf bits-per-pixel 8))
+
+  (let ((width (get-system-metrics :cx-icon))
+	(height (get-system-metrics :cy-icon)))
+    (unless (= (length and-bits) (truncate (* width height bits-per-pixel) 8))
+      (error "and-bits needs to be ~S wide (is only ~S)" 
+	     (truncate (* width height bits-per-pixel) 8)
+	     (length and-bits)))
+    (unless (= (length xor-bits) (length and-bits))
+      (error "bitmasks need to be same length"))
+
+    (with-foreign-object (abits :uint8 (length and-bits))
+      (with-foreign-object (xbits :uint8 (length and-bits))
+	(dotimes (i (length and-bits))
+	  (setf (mem-aref abits :uint8 i) (aref and-bits i)
+		(mem-aref xbits :uint8 i) (aref xor-bits i)))
+	(let ((icon (%create-icon (or instance (get-module-handle))
+				  width
+				  height
+				  1
+				  bits-per-pixel
+				  abits
+				  xbits)))
+	  (if (null-pointer-p icon)
+	      (get-last-error)
+	      icon))))))
+
+(defcfun (%destroy-icon "DestroyIcon" :convention :stdcall)
+    :boolean
+  (icon :pointer))
+
+(defun destroy-icon (icon)
+  (%destroy-icon icon))
+
+(defcfun (%draw-icon "DrawIcon" :convention :stdcall)
+    :boolean
+  (hdc :pointer)
+  (x :int32)
+  (y :int32)
+  (icon :pointer))
+
+(defun draw-icon (hdc x y icon)
+  (%draw-icon hdc x y icon))
+
+
+(defcfun (%get-device-caps "GetDeviceCaps" :convention :stdcall)
+    :int32
+  (hdc :pointer)
+  (index :int32))
+
+(defun get-device-caps (hdc name)
+  (%get-device-caps hdc 
+		    (if (keywordp name)
+			(ecase name 
+			  (:driver-version 0)
+			  (:technology 2)
+			  (:hsize-mm 4)
+			  (:vsize-mm 6)
+			  (:hsize-pixel 8)
+			  (:vsize-pixel 10)
+			  (:bits-per-pixel 12)
+			  (:planes 14)
+			  (:numbrushes 16)
+			  (:numpens 18)
+			  (:nummarkers 20)
+			  (:numfonts 22)
+			  (:numcolors 24)
+			  (:pdevicesize 26)
+			  (:curvecaps 28)
+			  (:linecaps 30)
+			  (:polygonalcaps 32)
+			  (:textcaps 34)
+			  (:clipcaps 36)
+			  (:rastercaps 38)
+			  (:aspectx 40)
+			  (:aspecty 42)
+			  (:aspectxy 44)
+			  (:logpixelsx 88)
+			  (:logpixelsy 90)
+			  (:sizepalette 104)
+			  (:numreserved 106)
+			  (:colorres 108))
+			name)))
 
