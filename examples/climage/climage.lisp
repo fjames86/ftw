@@ -420,6 +420,7 @@ Copyright (c) Frank James 2016.
          (progn
            (show-window hwnd)
            (update-window hwnd)
+	   (set-foreground-window hwnd)
            (do ((done nil))
                (done)
              (let ((r (get-message msg)))
