@@ -65,7 +65,12 @@
   (t (:default "Shell32")))
 
 (use-foreign-library shell32)
-  
+
+(define-foreign-library msimg32 
+  (t (:default "Msimg32")))
+
+(use-foreign-library msimg32)
+
 ;; -------------------- for errors ----------------------------
 
 (defcfun (%format-message "FormatMessageA" :convention :stdcall)
@@ -2388,6 +2393,14 @@ Return is keywork specifying button user clicked."
 (defun set-pixel (hdc x y rgb)
   (%set-pixel hdc x y rgb))
 
+(defcfun (%get-pixel "GetPixel" :convention :stdcall) 
+    :uint32
+  (hdc :pointer)
+  (x :int32)
+  (y :int32))
+
+(defun get-pixel (hdc x y)
+  (%get-pixel hdc x y))
 
 (defcfun (%move-to-ex "MoveToEx" :convention :stdcall) :boolean
   (hdc :pointer)
@@ -2396,7 +2409,7 @@ Return is keywork specifying button user clicked."
   (point :pointer))
 
 (defun move-to (hdc x y)
-  (%move-to-ex hdc x y (null-pointer)))
+  (%move-to-ex hdc (truncate x) (truncate y) (null-pointer)))
 
 (defcfun (%line-to "LineTo" :convention :stdcall) :boolean
   (hdc :pointer)
@@ -2404,7 +2417,7 @@ Return is keywork specifying button user clicked."
   (y :int32))
 
 (defun line-to (hdc x y)
-  (%line-to hdc x y))
+  (%line-to hdc (truncate x) (truncate y)))
 
 (defcfun (%poly-bezier "PolyBezier" :convention :stdcall) :boolean
   (hdc :pointer)
@@ -2478,13 +2491,14 @@ Return is keywork specifying button user clicked."
   (len :int32))
 
 (defun get-window-text (hwnd)
-  (with-foreign-object (buffer :uint8 1024)
-    (let ((len (%get-window-text hwnd buffer 1024)))
-      (if (and (>= len 0) (<= len 512))
-	  (foreign-string-to-lisp buffer
-				  :count (* len 2)
-				  :encoding :ucs-2le)
-	  (error "Buffer too small?")))))
+  (let ((count (+ 2 (get-window-text-length hwnd))))
+    (with-foreign-object (buffer :uint8 (* count 2))
+      (let ((len (%get-window-text hwnd buffer count)))
+        (if (and (>= len 0) (<= len count))
+            (foreign-string-to-lisp buffer
+                                    :count (* len 2)
+                                    :encoding :ucs-2le)
+            (error "Buffer too small?"))))))
 
 
 (defcstruct toolinfo
@@ -2819,6 +2833,32 @@ Return is keywork specifying button user clicked."
     (let ((res (%polyline hdc plist (length points))))
       (unless res (get-last-error)))))
 
+(defun raster-op (raster-op)
+  (cond
+    ((null raster-op) #x42)
+    ((integerp raster-op)
+     raster-op)
+    ((keywordp raster-op)
+     (ecase raster-op
+       (:blackness #x42)
+       (:captureblt #x40000000)
+       (:dstinvert #x00550009)
+       (:mergecopy #x00c000ca)
+       (:mergepaint #x00bb0226)
+       (:no-mirror-bitmap #x80000000)
+       (:not-src-copy #x00330008)
+       (:not-src-erase #x001100a6)
+       (:patcopy #x00f00021)
+       (:patinvert #x005a0049)
+       (:patpaint #x00fb0a09)
+       (:srcand #x008800c6)
+       (:srccopy #x00cc0020)
+       (:srcerase #x00440328)
+       (:srcinvert #x00660046)
+       (:srcpaint #x00ee0086)
+       (:whiteness #x00ff0062)))
+    (t (error "RASTER-OP must be keyword or integer."))))
+
 (defcfun (%bit-blt "BitBlt" :convention :stdcall)
     :boolean
   (hdc-dest :pointer)
@@ -2830,37 +2870,144 @@ Return is keywork specifying button user clicked."
   (x-source :int32)
   (y-source :int32)
   (rop :uint32))
-
+  
 (defun bit-blt (hdc-dest x-dest y-dest hdc-source x-source y-source
                 &key width height raster-op)
   (let ((res (%bit-blt hdc-dest x-dest y-dest
                        (or width 0) (or height 0)
                        hdc-source x-source y-source
-                       (cond
-                         ((null raster-op) #x42)
-                         ((integerp raster-op)
-                          raster-op)
-                         ((keywordp raster-op)
-                          (ecase raster-op
-                            (:blackness #x42)
-                            (:captureblt #x40000000)
-                            (:dstinvert #x00550009)
-                            (:mergecopy #x00c000ca)
-                            (:mergepaint #x00bb0226)
-                            (:no-mirror-bitmap #x80000000)
-                            (:not-src-copy #x00330008)
-                            (:not-src-erase #x001100a6)
-                            (:patcopy #x00f00021)
-                            (:patinvert #x005a0049)
-                            (:patpaint #x00fb0a09)
-                            (:srcand #x008800c6)
-                            (:srccopy #x00cc0020)
-                            (:srcerase #x00440328)
-                            (:srcinvert #x00660046)
-                            (:srcpaint #x00ee0086)
-                            (:whiteness #x00ff0062)))
-                         (t (error "RASTER-OP must be keyword or integer."))))))
+                       (raster-op raster-op))))
     (unless res (get-last-error))))
+
+(defcfun (%mask-blt "MaskBlt" :convention :stdcall) 
+    :boolean
+  (hdc-dest :pointer)
+  (xdest :int32)
+  (ydest :int32)
+  (width :int32)
+  (height :int32)
+  (hdc-src :pointer)
+  (xsrc :int32)
+  (ysrc :int32)
+  (bitmap :pointer)
+  (xmask :int32)
+  (ymask :int32)
+  (rop :uint32))
+
+(defun mask-blt (hdc-dest x-dest y-dest hdc-source x-source y-source 
+		 &key width height bitmap xmask ymask raster-op)
+  (%mask-blt hdc-dest x-dest y-dest 
+	     (or width 0) (or height 0)
+	     hdc-source x-source y-source 
+	     (or bitmap (null-pointer))
+	     (or xmask 0)
+	     (or ymask 0)
+         (raster-op raster-op)))
+ 
+(defcfun (%stretch-blt "StretchBlt" :convention :stdcall)
+    :boolean
+  (hdc-dest :pointer)
+  (x-dest :int32)
+  (y-dest :int32)
+  (width-dest :int32)
+  (height-dest :int32)
+  (hdc-src :pointer)
+  (x-src :int32)
+  (y-src :int32)
+  (width-src :int32)
+  (height-src :int32)
+  (rop :uint32))
+
+(defun stretch-blt (hdc-dest x-dest y-dest hdc-source x-source y-source 
+		    &key width-dest height-dest width-source height-source raster-op)
+  (%stretch-blt hdc-dest x-dest y-dest
+		(or width-dest 0) (or height-dest 0)
+		hdc-source x-source y-source
+		(or width-source 0) (or height-source 0)
+        (raster-op raster-op)))
+
+(defcfun (%plg-blt "PlgBlt" :convention :stdcall)
+    :boolean
+  (hdc-dest :pointer)
+  (point :pointer)
+  (hdc-source :pointer)
+  (x-source :int32)
+  (y-source :int32)
+  (width :int32)
+  (height :int32)
+  (mask :pointer)
+  (xmask :int32)
+  (ymask :int32))
+
+(defun plg-blt (hdc-dest point hdc-source x-source y-source 
+		&key width height bitmap xmask ymask)
+  (with-foreign-object (p '(:struct point))
+    (point-foreign point p)
+    (%plg-blt hdc-dest p hdc-source x-source y-source 
+	      (or width 0) (or height 0) 
+	      (or bitmap (null-pointer))
+	      (or xmask 0) (or ymask 0))))
+
+(defcfun (%transparent-blt "TransparentBlt" :convention :stdcall)
+    :boolean
+  (hdc-dest :pointer)
+  (x-dest :int32)
+  (y-dest :int32)
+  (width-dest :int32)
+  (height-dest :int32)
+  (hdc-source :pointer)
+  (x-source :int32)
+  (y-source :int32)
+  (width-source :int32)
+  (height-source :int32)
+  (color :uint32))
+
+(defun transparent-blt (hdc-dest x-dest y-dest hdc-source x-source y-source 
+			&key width-dest height-dest width-source height-source transparent-color)
+  (%transparent-blt hdc-dest x-dest y-dest 
+		    (or width-dest 0) (or height-dest 0)
+		    hdc-source x-source y-source 
+		    (or width-source 0) (or height-source 0)
+		    (or transparent-color 0)))
+
+(defcfun (%pat-blt "PatBlt" :convention :stdcall) :boolean
+  (hdc :pointer)
+  (x :int32)
+  (y :int32)
+  (width :int32)
+  (height :int32)
+  (rop :uint32))
+(defun pat-blt (hdc x y width height &optional raster-op)
+  (%pat-blt hdc
+            x y width height
+            (raster-op raster-op)))
+
+
+(defcfun (%set-stretch-blt-mode "SetStretchBltMode" :convention :stdcall)
+    :int32 
+  (hdc :pointer)
+  (index :int32))
+
+(defun set-stretch-blt-mode (hdc &optional mode)
+  (%set-stretch-blt-mode hdc 
+			 (ecase (or mode :black-on-white)
+			   (:black-on-white 1)
+			   (:white-on-black 2)
+			   (:color-on-color 3)
+			   (:half-tone 4))))
+
+(defcfun (%get-stretch-blt-mode "GetStretchBltMode" :convention :stdcall)
+    :int32 
+  (hdc :pointer))
+
+(defun get-stretch-blt-mode (hdc)
+  (let ((res (%get-stretch-blt-mode hdc)))
+    (switch res
+      (1 :black-on-white)
+      (2 :white-on-black)
+      (3 :color-on-color)
+      (4 :half-tone)
+      (t (get-last-error)))))
 
 (defcfun (%create-compatible-dc "CreateCompatibleDC" :convention :stdcall)
     :pointer
@@ -4067,4 +4214,123 @@ Return is keywork specifying button user clicked."
 			  (:numreserved 106)
 			  (:colorres 108))
 			name)))
+
+(defcfun (%create-compatible-bitmap "CreateCompatibleBitmap" :convention :stdcall)
+    :pointer 
+  (hdc :pointer)
+  (width :int32)
+  (height :int32))
+
+(defun create-compatible-bitmap (hdc width height)
+  (let ((res (%create-compatible-bitmap hdc width height)))
+    (if (null-pointer-p res)
+	(get-last-error)
+	res)))
+
+(defcfun (%gradient-fill "GradientFill" :convention :stdcall)
+    :boolean
+  (hdc :pointer)
+  (vertex :pointer)
+  (vcount :uint32)
+  (mesh :pointer)
+  (mcount :uint32)
+  (mode :uint32))
+
+(defcstruct trivertex 
+  (x :int32)
+  (y :int32)
+  (red :uint16)
+  (green :uint16)
+  (blue :uint16)
+  (alpha :uint16))
+
+(defcstruct gradient-triangle 
+  (v1 :uint32)
+  (v2 :uint32)
+  (v3 :uint32))
+
+(defcstruct gradient-rectangle
+  (uleft :uint32)
+  (lright :uint32))
+
+(defun gradient-fill (hdc vertices mesh &optional mode)
+  (let ((nvertex (length vertices))
+	(nmesh (length mesh)))
+    (with-foreign-object (vlist '(:struct trivertex) nvertex)
+      (do ((v vertices (cdr v))
+	   (i 0 (1+ i)))
+	  ((null v))
+	(let ((p (mem-aptr vlist '(:struct trivertex) i)))
+	  (destructuring-bind (x y &key red green blue alpha) (car v)
+	    (setf (foreign-slot-value p '(:struct trivertex) 'x) x
+		  (foreign-slot-value p '(:struct trivertex) 'y) y
+		  (foreign-slot-value p '(:struct trivertex) 'red) (or red 0)
+		  (foreign-slot-value p '(:struct trivertex) 'green) (or green 0)
+		  (foreign-slot-value p '(:struct trivertex) 'blue) (or blue 0)
+		  (foreign-slot-value p '(:struct trivertex) 'alpha) (or alpha 0)))))
+      (ecase (or mode :triangle)
+	(:triangle 
+	 (with-foreign-object (mlist '(:struct gradient-triangle) nmesh)
+	   (do ((m mesh (cdr m))
+		(i 0 (1+ i)))
+	       ((null m))
+	     (let ((p (mem-aptr mlist '(:struct gradient-triangle) i)))
+	       (destructuring-bind (v1 v2 v3) (car m)
+		 (setf (foreign-slot-value p '(:struct gradient-triangle) 'v1) v1
+		       (foreign-slot-value p '(:struct gradient-triangle) 'v2) v2
+		       (foreign-slot-value p '(:struct gradient-triangle) 'v3) v3))))
+	   (%gradient-fill hdc vlist nvertex mlist nmesh 2)))
+	((:hrectangle :vrectangle)
+	 (with-foreign-object (mlist '(:struct gradient-rectangle) nmesh)
+	   (do ((m mesh (cdr m))
+		(i 0 (1+ i)))
+	       ((null m))
+	     (let ((p (mem-aptr mlist '(:struct gradient-rectangle) i)))
+	       (destructuring-bind (v1 v2) (car m)
+		 (setf (foreign-slot-value p '(:struct gradient-rectangle) 'uleft) v1
+		       (foreign-slot-value p '(:struct gradient-rectangle) 'lright) v2))))
+	   (%gradient-fill hdc vlist nvertex mlist nmesh 
+			   (ecase mode 
+			     (:hrectangle 0)
+			     (:vrectangle 1)))))))))
+
+
+(defcfun (%set-text-color "SetTextColor" :convention :stdcall)
+    :uint32
+  (hdc :pointer)
+  (color :uint32))
+
+(defun set-text-color (hdc color)
+  (%set-text-color hdc color))
+
+(defcfun (%get-text-color "GetTextColor" :convention :stdcall)
+    :uint32
+  (hdc :pointer))
+
+(defun get-text-color (hdc)
+  (%get-text-color hdc))
+
+;; (defcstruct findreplace
+;;   (size :uint32)
+;;   (owner :pointer)
+;;   (instance :pointer)
+;;   (flags :uint32)
+;;   (find-what :pointer)
+;;   (replace-with :pointer)
+;;   (fw-count :uint16)
+;;   (rw-count :uint16)
+;;   (data lparam)
+;;   (hook :pointer)
+;;   (template-name :pointer))
+
+;; (defcfun (%replace-text "ReplaceTextW" :convention :stdcall)
+;;     :pointer
+;;   (lp :pointer))
+
+;; (defun replace-text (&key flags find-what replace-with instance hwnd)
+;;   ;; we need to allocate the buffers for the find-what and replace-with strings
+;;   ;; this is because replace-text creates a modeless dialog so the buffers
+;;   ;; need to live until the dialog closes.
+;;   ;; This makes it kind of hard for us to do.
+;;  )
 

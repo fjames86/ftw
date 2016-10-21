@@ -7,19 +7,20 @@
   "Send a WM_SETFONT message to the window with the specified font or default GUI font." 
   (send-message hwnd (const +wm-setfont+) :wparam (or font (get-stock-object :default-gui-font))))
 
-(defun default-message-loop (wndproc &key class-name title width height)
+(defun default-message-loop (wndproc &key class-name title width height background icon)
   "Standard message loop. Defines a new window class with :arrow cursor and 3d-face background,
 creates an overlapped, visible  window of this class. Shows, updates and sets this window to 
 the foreground. Then loops, processing messages, until a WM_QUIT message is received.
 " 
   (let ((cname (or class-name "FTW_MAIN_CLASS")))
     (register-class cname 
-                    wndproc 
+                    wndproc
+                    :icon icon
                     :cursor (load-cursor :arrow)
-                    :background (get-sys-color-brush :3d-face))
+                    :background (or background (get-sys-color-brush :3d-face)))
     (let ((hwnd (create-window cname 
                                :window-name (or title cname)
-                               :styles (logior-consts +ws-overlappedwindow+ +ws-visible+)
+                               :styles (logior +ws-overlappedwindow+ +ws-visible+)
                                :x 100 :y 100 :width (or width 400) :height (or height 300)))
           (msg (make-msg)))
       (unless hwnd (return-from default-message-loop nil))

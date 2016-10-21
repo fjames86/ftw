@@ -127,7 +127,7 @@
   ;; we could add a static for player scores ... but not done that yet
   
   ;; set the timer to start ticking 
-  (set-timer :hwnd hwnd :elapse 5 :replace-timer 1)
+  (set-timer :hwnd hwnd :elapse 1 :replace-timer 1)
   
   nil)
 
@@ -147,7 +147,7 @@
       (let ((p (pos-physical *p2*)))
 	(rectangle hdc (pos-x p) (pos-y p)
 		   (+ (pos-x p) *pad-width-phys*)
-		   (+ (pos-y p) *pad-height-phys*)))      
+		   (+ (pos-y p) *pad-height-phys*)))
 
       (let* ((pen (get-stock-object :white-pen))
 	     (hold-pen (select-object hdc pen)))

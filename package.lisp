@@ -128,6 +128,7 @@
            #:rectangle
            #:draw-text
            #:set-pixel
+	   #:get-pixel
            #:move-to
            #:line-to
            #:poly-bezier
@@ -177,6 +178,13 @@
            #:chord
            #:polyline
            #:bit-blt
+	   #:mask-blt 
+	   #:plg-blt 
+	   #:stretch-blt 
+	   #:transparent-blt
+       #:pat-blt 
+	   #:set-stretch-blt-mode 
+	   #:get-stretch-blt-mode 
            #:create-compatible-dc
            #:bitmap
            #:bitmap-type
@@ -306,8 +314,11 @@
        #:destroy-icon
        #:draw-icon
        #:get-device-caps
-
-
+       #:create-compatible-bitmap 
+       #:gradient-fill
+       #:set-text-color
+       #:get-text-color
+       
 	   ;; ftw.lisp 
 	   #:set-default-font 
 	   #:default-message-loop
