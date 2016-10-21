@@ -169,6 +169,7 @@
            #:foreign-tcitem
            #:tcitem-foreign
            #:create-font
+	   #:enum-font-families 
            #:set-bk-mode
            #:set-bk-color 
            #:ext-create-pen
@@ -318,12 +319,15 @@
        #:gradient-fill
        #:set-text-color
        #:get-text-color
-       
+       #:create-font-indirect 
+
 	   ;; ftw.lisp 
 	   #:set-default-font 
 	   #:default-message-loop
        #:message-poll
-       
+       #:generate-bitmap-resource 
+       #:get-default-font 
+
            ))
            
            

@@ -18,6 +18,10 @@
 ;; It returns the string the user wants to search for
 ;; or nil if they canceled.
 
+;; Note: we could use the predefined modeless "find/replace" dialog that
+;; MSFT provides for us. You can use it by calling ReplaceTextW.
+;; But using it is a little involved so I just write my own.
+
 (defvar *show-find-dialog-text* nil)
 
 (defwndproc find-dialog-dlgproc (hwnd msg wparam lparam)

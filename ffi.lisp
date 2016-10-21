@@ -940,7 +940,7 @@ Return is keywork specifying button user clicked."
 				      (:shared #x8000)
 				      (:vga-color #x80)))))
       (if (null-pointer-p h)
-          (error "Failed to load image")
+          nil ;; (error "Failed to load image")
           h))))
 
 (defcfun (%in-send-message "InSendMessage" :convention :stdcall)
@@ -1561,7 +1561,7 @@ Return is keywork specifying button user clicked."
   (color :uint32))
 
 (defun create-pen (style color &optional width)
-  (%create-pen (mergeflags style
+  (%create-pen (mergeflags (if (keywordp style) (list style) style)
                            (:solid 0)
                            (:dash 1)
                            (:dot 2)
@@ -2472,7 +2472,7 @@ Return is keywork specifying button user clicked."
   (with-foreign-object (bp :uint8 (length data))
     (dotimes (i (length data))
       (setf (mem-aref bp :uint8 i) (aref data i)))
-    (%create-bitmap (truncate width 8) (truncate height 8)
+    (%create-bitmap width height 
 		    planes
 		    bits-per-pixel
 		    bp)))
@@ -2692,16 +2692,27 @@ Return is keywork specifying button user clicked."
 		  (or pitch-and-family 0)
 		  s)))
 
-;; (defcfun (%enum-font-families "EnumFontFamiliesEx" :convention :stdcall)
-;;     :int32
-;;   (hdc :pointer)
-;;   (logfont :pointer)
-;;   (proc :pointer)
-;;   (lparam lparam)
-;;   (flags :uint32))
+(defcfun (%enum-font-families "EnumFontFamiliesExW" :convention :stdcall)
+    :int32
+  (hdc :pointer)
+  (logfont :pointer)
+  (proc :pointer)
+  (lparam lparam)
+  (flags :uint32))
 
-;; (defun enum-font-families (hdc)
-;;   (with-foreign-object (lf '(:struct logfont))
+(defparameter *enum-font-families* nil)
+(defcallback enum-font-cb :int32 ((logfont :pointer) (textmetric :pointer) (font-type :uint32) (lparam lparam))
+  (declare (ignore textmetric font-type lparam))
+  (push (foreign-logfont logfont) *enum-font-families*)
+  1)
+
+(defun enum-font-families (hdc)
+  "Returns a list of LOGFONT structures which are the fonts the DC supports." 
+  (with-foreign-object (lf '(:struct logfont))
+    (memset lf (foreign-type-size '(:struct logfont)))
+    (setf *enum-font-families* nil)
+    (%enum-font-families hdc lf (callback enum-font-cb) 0 0)
+    *enum-font-families*))
     
   
 (defcfun (%set-bk-mode "SetBkMode" :convention :stdcall) :int32
@@ -3133,7 +3144,39 @@ Return is keywork specifying button user clicked."
    :name (foreign-string-to-lisp
           (foreign-slot-pointer p '(:struct logfont) 'name)
           :encoding :ucs-2le)))
-   
+(defun logfont-foreign (lf p)
+  (setf (foreign-slot-value p '(:struct logfont) 'height)
+	(logfont-height lf)
+	(foreign-slot-value p '(:struct logfont) 'width)
+	(logfont-width lf)
+	(foreign-slot-value p '(:struct logfont) 'escapement)
+	(logfont-escapement lf)
+	(foreign-slot-value p '(:struct logfont) 'orientation)
+	(logfont-orientation lf)
+	(foreign-slot-value p '(:struct logfont) 'weight)
+	(logfont-weight lf)
+	(foreign-slot-value p '(:struct logfont) 'italic)
+	(logfont-italic lf)
+	(foreign-slot-value p '(:struct logfont) 'underline)
+	(logfont-underline lf)
+	(foreign-slot-value p '(:struct logfont) 'strikeout)
+	(logfont-strikeout lf)
+	(foreign-slot-value p '(:struct logfont) 'charset)
+	(logfont-charset lf)
+	(foreign-slot-value p '(:struct logfont) 'out-precision)
+	(logfont-out-precision lf)
+	(foreign-slot-value p '(:struct logfont) 'clip-precision)
+	(logfont-clip-precision lf)
+	(foreign-slot-value p '(:struct logfont) 'quality)
+	(logfont-quality lf)
+	(foreign-slot-value p '(:struct logfont) 'pitch-and-family)
+	(logfont-pitch-and-family lf))
+  (lisp-string-to-foreign (logfont-name lf) 
+			  (foreign-slot-pointer p '(:struct logfont) 'name)
+			  64 
+			  :encoding :ucs-2le)
+  p)
+
 (defun get-object (obj type)
   (let ((count (%get-object obj 0 (null-pointer))))
     (when (zerop count) (get-last-error))
@@ -3210,6 +3253,8 @@ Return is keywork specifying button user clicked."
   (switch action
     (+spi-getnonclientmetrics+
      (with-foreign-object (buffer '(:struct nonclientmetrics))
+       (setf (foreign-slot-value buffer '(:struct nonclientmetrics) 'size)
+	     (foreign-type-size '(:struct nonclientmetrics)))
        (let ((res (%system-parameters-info action
                                            (foreign-type-size '(:struct nonclientmetrics))
                                            buffer
@@ -3218,7 +3263,9 @@ Return is keywork specifying button user clicked."
                                                  (:update-ini-file #x1)
                                                  (:send-win-ini-change #x2))
                                                0))))
-         (unless res (get-last-error))
+         (unless res 
+	   (get-last-error) 
+	   (error "SystemParametersInfo failed"))
          (foreign-nonclientmetrics buffer))))
     (t (error "Current unsupported action -- please add support for this"))))
 
@@ -3914,8 +3961,7 @@ Return is keywork specifying button user clicked."
                              ((integerp index) index)
                              (t (error "Index must be a keyword or integer")))))
 
-                           
-
+                          
 (defcfun (%set-window-long-pointer "SetWindowLongPtrW" :convention :stdcall)
     :pointer
   (hwnd :pointer)
@@ -3960,9 +4006,7 @@ Return is keywork specifying button user clicked."
                                  (:wndproc -4)))
                               ((integerp index) index)
                               (t (error "Index must be keyword or integer")))))
-
-                            
-
+                           
 (defcfun (%set-active-window "SetActiveWindow" :convention :stdcall)
     :pointer
   (hwnd :pointer))
@@ -3972,7 +4016,6 @@ Return is keywork specifying button user clicked."
     (if (null-pointer-p res)
         nil
         res)))
-
 
 (defcfun (%get-foreground-window "GetForegroundWindow" :convention :stdcall)
     :pointer)
@@ -4021,10 +4064,6 @@ Return is keywork specifying button user clicked."
      (:rawinput +qs-rawinput+)
      (:sendmessage +qs-sendmessage+)
      (:timer +qs-timer+))))
-
-  
-    
-              
 
 (defcfun (%msg-wait-for-multiple-objects "MsgWaitForMultipleObjects" :convention :stdcall)
     :uint32
@@ -4334,3 +4373,34 @@ Return is keywork specifying button user clicked."
 ;;   ;; This makes it kind of hard for us to do.
 ;;  )
 
+;; (defcfun (%create-di-bitmap "CreateDIBitmap" :convention :stdcall)
+;;     :pointer
+;;   (hdc :pointer)
+;;   (header :pointer)
+;;   (finit :uint32)
+;;   (pinit :pointer)
+;;   (info :pointer)
+;;   (usage :uint32))
+
+;; (defcfun (%set-di-bits "SetDIBits" :convention :stdcall)
+;;     :int32
+;;   (hdc :pointer)
+;;   (bitmap :pointer)
+;;   (start-scan :uint32)
+;;   (scan-count :uint32)
+;;   (bits :pointer)
+;;   (info :pointer)
+;;   (color-use :uint32))
+    
+(defcfun (%create-font-indirect "CreateFontIndirectW" :convention :stdcall)
+    :pointer
+  (lp :pointer))
+
+(defun create-font-indirect (logfont)
+  (declare (type logfont logfont))
+  (with-foreign-object (lp '(:struct logfont))
+    (logfont-foreign logfont lp)
+    (let ((f (%create-font-indirect lp)))
+      (if (null-pointer-p f)
+	  (error "Failed to create font")
+	  f))))
