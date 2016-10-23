@@ -970,15 +970,23 @@ Return is keywork specifying button user clicked."
 		       0)
   *enum-child-windows*)
   
-(defcfun (%find-window "FindWindowW" :convention :stdcall)
+(defcfun (%find-window "FindWindowExW" :convention :stdcall)
     :pointer
+  (parent :pointer)
+  (child :pointer)
   (class-name :pointer)
   (window-name :pointer))
 
-(defun find-window (class-name window-name)
+(defun find-window (class-name window-name &optional hwnd child)
   (with-wide-string (c class-name)
     (with-wide-string (w window-name)
-      (%find-window c w))))
+      (let ((res (%find-window (or hwnd (null-pointer))
+			       (or child (null-pointer))
+			       c
+			       w)))
+	(if (null-pointer-p res)
+	    nil
+	    res)))))
 
 (defcfun (%get-parent "GetParent" :convention :stdcall)
     :pointer
