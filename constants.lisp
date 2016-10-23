@@ -2794,3 +2794,6 @@
 (defconstant +SPI-SETSNAPSIZING+               #x008F)
 (defconstant +SPI-GETDOCKMOVING+               #x0090)
 (defconstant +SPI-SETDOCKMOVING+               #x0091)
+
+(defconstant +dib-rgb-colors+ 0)
+(defconstant +dib-pal-colors+ 1)

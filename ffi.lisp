@@ -2692,6 +2692,75 @@ Return is keywork specifying button user clicked."
 		  (or pitch-and-family 0)
 		  s)))
 
+(defcstruct logfont
+  (height :int32)
+  (width :int32)
+  (escapement :int32)
+  (orientation :int32)
+  (weight :int32)
+  (italic :uint8)
+  (underline :uint8)
+  (strikeout :uint8)
+  (charset :uint8)
+  (out-precision :uint8)
+  (clip-precision :uint8)
+  (quality :uint8)
+  (pitch-and-family :uint8)
+  (name :uint16 :count 32))
+(defstruct logfont
+  height width escapement orientation weight italic underline strikeout
+  charset out-precision clip-precision quality pitch-and-family name)
+(defun foreign-logfont (p)
+  (make-logfont
+   :height (foreign-slot-value p '(:struct logfont) 'height)
+   :width (foreign-slot-value p '(:struct logfont) 'width)
+   :escapement (foreign-slot-value p '(:struct logfont) 'escapement)
+   :orientation (foreign-slot-value p '(:struct logfont) 'orientation)
+   :weight (foreign-slot-value p '(:struct logfont) 'weight)
+   :italic (foreign-slot-value p '(:struct logfont) 'italic)
+   :underline (foreign-slot-value p '(:struct logfont) 'underline)
+   :strikeout (foreign-slot-value p '(:struct logfont) 'strikeout)
+   :charset (foreign-slot-value p '(:struct logfont) 'charset)
+   :out-precision (foreign-slot-value p '(:struct logfont) 'out-precision)
+   :clip-precision (foreign-slot-value p '(:struct logfont) 'clip-precision)
+   :quality (foreign-slot-value p '(:struct logfont) 'quality)
+   :pitch-and-family (foreign-slot-value p '(:struct logfont) 'pitch-and-family)
+   :name (foreign-string-to-lisp
+          (foreign-slot-pointer p '(:struct logfont) 'name)
+          :encoding :ucs-2le)))
+(defun logfont-foreign (lf p)
+  (setf (foreign-slot-value p '(:struct logfont) 'height)
+	(logfont-height lf)
+	(foreign-slot-value p '(:struct logfont) 'width)
+	(logfont-width lf)
+	(foreign-slot-value p '(:struct logfont) 'escapement)
+	(logfont-escapement lf)
+	(foreign-slot-value p '(:struct logfont) 'orientation)
+	(logfont-orientation lf)
+	(foreign-slot-value p '(:struct logfont) 'weight)
+	(logfont-weight lf)
+	(foreign-slot-value p '(:struct logfont) 'italic)
+	(logfont-italic lf)
+	(foreign-slot-value p '(:struct logfont) 'underline)
+	(logfont-underline lf)
+	(foreign-slot-value p '(:struct logfont) 'strikeout)
+	(logfont-strikeout lf)
+	(foreign-slot-value p '(:struct logfont) 'charset)
+	(logfont-charset lf)
+	(foreign-slot-value p '(:struct logfont) 'out-precision)
+	(logfont-out-precision lf)
+	(foreign-slot-value p '(:struct logfont) 'clip-precision)
+	(logfont-clip-precision lf)
+	(foreign-slot-value p '(:struct logfont) 'quality)
+	(logfont-quality lf)
+	(foreign-slot-value p '(:struct logfont) 'pitch-and-family)
+	(logfont-pitch-and-family lf))
+  (lisp-string-to-foreign (logfont-name lf) 
+			  (foreign-slot-pointer p '(:struct logfont) 'name)
+			  64 
+			  :encoding :ucs-2le)
+  p)
+
 (defcfun (%enum-font-families "EnumFontFamiliesExW" :convention :stdcall)
     :int32
   (hdc :pointer)
@@ -3108,74 +3177,6 @@ Return is keywork specifying button user clicked."
         :width (foreign-point (foreign-slot-pointer p '(:struct logpen) 'width))
         :color (foreign-slot-value p '(:struct logpen) 'color)))
         
-(defcstruct logfont
-  (height :int32)
-  (width :int32)
-  (escapement :int32)
-  (orientation :int32)
-  (weight :int32)
-  (italic :uint8)
-  (underline :uint8)
-  (strikeout :uint8)
-  (charset :uint8)
-  (out-precision :uint8)
-  (clip-precision :uint8)
-  (quality :uint8)
-  (pitch-and-family :uint8)
-  (name :uint16 :count 32))
-(defstruct logfont
-  height width escapement orientation weight italic underline strikeout
-  charset out-precision clip-precision quality pitch-and-family name)
-(defun foreign-logfont (p)
-  (make-logfont
-   :height (foreign-slot-value p '(:struct logfont) 'height)
-   :width (foreign-slot-value p '(:struct logfont) 'width)
-   :escapement (foreign-slot-value p '(:struct logfont) 'escapement)
-   :orientation (foreign-slot-value p '(:struct logfont) 'orientation)
-   :weight (foreign-slot-value p '(:struct logfont) 'weight)
-   :italic (foreign-slot-value p '(:struct logfont) 'italic)
-   :underline (foreign-slot-value p '(:struct logfont) 'underline)
-   :strikeout (foreign-slot-value p '(:struct logfont) 'strikeout)
-   :charset (foreign-slot-value p '(:struct logfont) 'charset)
-   :out-precision (foreign-slot-value p '(:struct logfont) 'out-precision)
-   :clip-precision (foreign-slot-value p '(:struct logfont) 'clip-precision)
-   :quality (foreign-slot-value p '(:struct logfont) 'quality)
-   :pitch-and-family (foreign-slot-value p '(:struct logfont) 'pitch-and-family)
-   :name (foreign-string-to-lisp
-          (foreign-slot-pointer p '(:struct logfont) 'name)
-          :encoding :ucs-2le)))
-(defun logfont-foreign (lf p)
-  (setf (foreign-slot-value p '(:struct logfont) 'height)
-	(logfont-height lf)
-	(foreign-slot-value p '(:struct logfont) 'width)
-	(logfont-width lf)
-	(foreign-slot-value p '(:struct logfont) 'escapement)
-	(logfont-escapement lf)
-	(foreign-slot-value p '(:struct logfont) 'orientation)
-	(logfont-orientation lf)
-	(foreign-slot-value p '(:struct logfont) 'weight)
-	(logfont-weight lf)
-	(foreign-slot-value p '(:struct logfont) 'italic)
-	(logfont-italic lf)
-	(foreign-slot-value p '(:struct logfont) 'underline)
-	(logfont-underline lf)
-	(foreign-slot-value p '(:struct logfont) 'strikeout)
-	(logfont-strikeout lf)
-	(foreign-slot-value p '(:struct logfont) 'charset)
-	(logfont-charset lf)
-	(foreign-slot-value p '(:struct logfont) 'out-precision)
-	(logfont-out-precision lf)
-	(foreign-slot-value p '(:struct logfont) 'clip-precision)
-	(logfont-clip-precision lf)
-	(foreign-slot-value p '(:struct logfont) 'quality)
-	(logfont-quality lf)
-	(foreign-slot-value p '(:struct logfont) 'pitch-and-family)
-	(logfont-pitch-and-family lf))
-  (lisp-string-to-foreign (logfont-name lf) 
-			  (foreign-slot-pointer p '(:struct logfont) 'name)
-			  64 
-			  :encoding :ucs-2le)
-  p)
 
 (defun get-object (obj type)
   (let ((count (%get-object obj 0 (null-pointer))))
@@ -3306,6 +3307,19 @@ Return is keywork specifying button user clicked."
 
 (defun release-dc (hdc &optional hwnd)
   (%release-dc hdc (or hwnd (null-pointer))))
+
+(defmacro with-dc ((var &optional hwnd) &body body)
+  (let ((ghwnd (gensym)))
+    `(let* ((,ghwnd ,hwnd)
+	    (,var (get-dc ,hwnd)))
+       (unwind-protect (progn ,@body)
+	 (release-dc ,var ,ghwnd)))))
+
+(defmacro with-compatible-dc ((var hdc) &body body)
+  `(let ((,var (create-compatible-dc ,hdc)))
+     (unwind-protect (progn ,@body)
+       (delete-dc ,var))))
+
 
 
 (defun hd (p size)
@@ -4169,33 +4183,49 @@ Return is keywork specifying button user clicked."
   (and-bits :pointer)
   (xor-bits :pointer))
 
-(defun create-icon (and-bits xor-bits &key instance bits-per-pixel)
-  (unless bits-per-pixel (setf bits-per-pixel 8))
+(defun create-icon (width height planes bits-per-pixel and-bits xor-bits)
+  (with-foreign-object (abits :uint8 (length and-bits))
+    (with-foreign-object (xbits :uint8 (length xor-bits))
+      (dotimes (i (max (length and-bits) (length xor-bits)))
+	(when (< i (length and-bits))
+	  (setf (mem-aref abits :uint8 i) (aref and-bits i)))
+	(when (< i (length xor-bits))
+	  (setf (mem-aref xbits :uint8 i) (aref xor-bits i))))
+      (let ((res (%create-icon (get-module-handle)
+			       width
+			       height
+			       planes
+			       bits-per-pixel
+			       abits
+			       xbits)))
+	(if (null-pointer-p res)
+	    nil
+	    res)))))
 
-  (let ((width (get-system-metrics :cx-icon))
-	(height (get-system-metrics :cy-icon)))
-    (unless (= (length and-bits) (truncate (* width height bits-per-pixel) 8))
-      (error "and-bits needs to be ~S wide (is only ~S)" 
-	     (truncate (* width height bits-per-pixel) 8)
-	     (length and-bits)))
-    (unless (= (length xor-bits) (length and-bits))
-      (error "bitmasks need to be same length"))
+(defcfun (%create-cursor "CreateCursor" :convention :stdcall)
+    :pointer
+  (instance :pointer)
+  (x :int32)
+  (y :int32)
+  (width :int32)
+  (height :int32)
+  (and-bits :pointer)
+  (xor-bits :pointer))
 
-    (with-foreign-object (abits :uint8 (length and-bits))
-      (with-foreign-object (xbits :uint8 (length and-bits))
-	(dotimes (i (length and-bits))
-	  (setf (mem-aref abits :uint8 i) (aref and-bits i)
-		(mem-aref xbits :uint8 i) (aref xor-bits i)))
-	(let ((icon (%create-icon (or instance (get-module-handle))
-				  width
-				  height
-				  1
-				  bits-per-pixel
-				  abits
-				  xbits)))
-	  (if (null-pointer-p icon)
-	      (get-last-error)
-	      icon))))))
+(defun create-cursor (x y width height and-bits xor-bits)
+  (with-foreign-object (abits :uint8 (length and-bits))
+    (with-foreign-object (xbits :uint8 (length xor-bits))
+      (dotimes (i (max (length and-bits) (length xor-bits)))
+	(when (< i (length and-bits))
+	  (setf (mem-aref abits :uint8 i) (aref and-bits i)))
+	(when (< i (length xor-bits))
+	  (setf (mem-aref xbits :uint8 i) (aref xor-bits i))))
+      (let ((res (%create-cursor (get-module-handle)
+				 x y width height
+				 abits xbits)))
+	(if (null-pointer-p res)
+	    nil
+	    res)))))
 
 (defcfun (%destroy-icon "DestroyIcon" :convention :stdcall)
     :boolean
@@ -4261,9 +4291,9 @@ Return is keywork specifying button user clicked."
   (height :int32))
 
 (defun create-compatible-bitmap (hdc width height)
-  (let ((res (%create-compatible-bitmap hdc width height)))
+  (let ((res (%create-compatible-bitmap (or hdc (null-pointer)) width height)))
     (if (null-pointer-p res)
-	(get-last-error)
+	(error "failed to create bitmap")
 	res)))
 
 (defcfun (%gradient-fill "GradientFill" :convention :stdcall)
@@ -4381,16 +4411,6 @@ Return is keywork specifying button user clicked."
 ;;   (pinit :pointer)
 ;;   (info :pointer)
 ;;   (usage :uint32))
-
-;; (defcfun (%set-di-bits "SetDIBits" :convention :stdcall)
-;;     :int32
-;;   (hdc :pointer)
-;;   (bitmap :pointer)
-;;   (start-scan :uint32)
-;;   (scan-count :uint32)
-;;   (bits :pointer)
-;;   (info :pointer)
-;;   (color-use :uint32))
     
 (defcfun (%create-font-indirect "CreateFontIndirectW" :convention :stdcall)
     :pointer
@@ -4404,3 +4424,111 @@ Return is keywork specifying button user clicked."
       (if (null-pointer-p f)
 	  (error "Failed to create font")
 	  f))))
+
+
+
+
+(defcfun (%create-dib-section "CreateDIBSection" :convention :stdcall)
+    :pointer
+  (hdc :pointer)
+  (bmi :pointer)
+  (usage :uint32)
+  (bits :pointer)
+  (section :pointer)
+  (offset :uint32))
+
+(defcstruct bitmapinfoheader
+  (size :uint32)
+  (width :int32)
+  (height :int32)
+  (planes :uint16)
+  (bits-per-pixel :uint16)
+  (compression :uint32)
+  (sizeimage :uint32)
+  (x-pixels-per-meter :int32)
+  (y-pixels-per-meter :int32)
+  (color-used :uint32)
+  (colour-important :uint32))
+
+(defun bitmapinfoheader-foreign (p width height planes bits-per-pixel)
+  (memset p (foreign-type-size '(:struct bitmapinfoheader)))
+  (setf (foreign-slot-value p '(:struct bitmapinfoheader) 'size)
+	(foreign-type-size '(:struct bitmapinfoheader))
+	(foreign-slot-value p '(:struct bitmapinfoheader) 'width)
+	width
+	(foreign-slot-value p '(:struct bitmapinfoheader) 'height)
+	height
+	(foreign-slot-value p '(:struct bitmapinfoheader) 'planes)
+	planes
+	(foreign-slot-value p '(:struct bitmapinfoheader) 'bits-per-pixel)
+	bits-per-pixel)
+  p)
+
+(defun create-dib-section (hdc width height planes bits-per-pixel)
+  (with-foreign-object (bmi '(:struct bitmapinfoheader))
+    (bitmapinfoheader-foreign bmi width height planes bits-per-pixel)
+    (with-foreign-object (bits :pointer)
+      (let ((bitmap (%create-dib-section (or hdc (null-pointer))
+					 bmi
+					 +dib-rgb-colors+
+					 bits
+					 (null-pointer)
+					 0)))
+	(if (null-pointer-p bitmap)
+	    nil
+	    (values bitmap (mem-aref bits :pointer)))))))
+
+
+(defcfun (%set-di-bits "SetDIBits" :convention :stdcall)
+    :int32
+  (hdc :pointer)
+  (bitmap :pointer)
+  (start-scan :uint32)
+  (scan-count :uint32)
+  (bits :pointer)
+  (info :pointer)
+  (color-use :uint32))
+
+(defun set-di-bits (hdc bitmap width height planes bits-per-pixel data)
+  (with-foreign-object (bmi '(:struct bitmapinfoheader))
+    (bitmapinfoheader-foreign bmi width height planes bits-per-pixel)
+    (with-foreign-object (bits :uint8 (length data))
+      (dotimes (i (length data))
+	(setf (mem-aref bits :uint8 i) (aref data i)))
+      (%set-di-bits (or hdc (null-pointer))
+		    bitmap
+		    0
+		    height
+		    bits
+		    bmi
+		    +dib-rgb-colors+))))
+
+
+(defcfun (%alpha-blend "AlphaBlend" :convention :stdcall)
+    :boolean
+  (hdc-dest :pointer)
+  (x-dest :int32)
+  (y-dest :int32)
+  (width-dest :int32)
+  (height-dest :int32)
+  (hdc-source :pointer)
+  (x-source :int32)
+  (y-source :int32)
+  (width-source :int32)
+  (height-source :int32)
+  (fnt :uint32))
+
+(defun alpha-blend (hdc-dest x-dest y-dest hdc-source x-source y-source
+		    &key width-dest height-dest width-source height-source source-constant-alpha)
+  (with-foreign-object (f :uint8 0)
+    (setf (mem-aref f :uint8 0) 0	  ;; blendop must be ac_src_over=0
+	  (mem-aref f :uint8 1) 0         ;; flags must be 0
+	  (mem-aref f :uint8 2) (or source-constant-alpha #xff)
+	  (mem-aref f :uint8 3) 1)        ;; alphaformat must be ac_src_alpha=1
+    (let ((res (%alpha-blend hdc-dest x-dest y-dest
+			     (or width-dest 0) (or height-dest 0)
+			     hdc-source x-source y-source
+			     (or width-source 0) (or height-source 0)
+			     (mem-aref f :uint32 0))))
+      (unless res (get-last-error)))))
+

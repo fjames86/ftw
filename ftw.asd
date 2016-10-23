@@ -12,7 +12,7 @@
    (:file "constants")
    (:file "ffi")
    (:file "ftw"))
-  :depends-on (:cffi :alexandria))
+  :depends-on (:cffi :alexandria :nibbles))
 
 
 

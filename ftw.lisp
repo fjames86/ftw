@@ -41,7 +41,14 @@ the foreground. Then loops, processing messages, until a WM_QUIT message is rece
                                  :mask (logior-consts +qs-allevents+)))
 
 
-(defun generate-bitmap-resource (filename)
+(defun create-bitmap-resource (width height planes bits-per-pixel data)
+  "Create a colour bitmap. Data should be a vector of (unsigned-byte 8) of
+the correct length and alignment for the colour data." 
+  (let ((bm (create-dib-section nil width height planes bits-per-pixel)))
+    (set-di-bits nil bm width height planes bits-per-pixel data)
+    bm))
+
+(defun generate-bitmap-resource (filename &optional (stream *standard-output*) name)
   "Parse a bitmap file and generate Lisp code so that the resource can be embedded
 within a Lisp program rather than having to deliver the image separately. 
 The function prints out the code to be inserted into your project.
@@ -64,14 +71,37 @@ This allows the programmer to embed images without having to deliver them as sep
 	      (planes (nibbles:ub16ref/le bmp 26))
 	      (bits-per-pixel (nibbles:ub16ref/le bmp 28)))
 	  
-	  (format t "(defvar NAME~%")
-	  (format t "        (create-bitmap ~A ~A ~A ~A~%#(        " 
+	  (format stream "(defvar ~A~%" (or name "NAME"))
+	  (format stream "        (create-bitmap-resource ~A ~A ~A ~A~%#(        " 
 		  width height planes bits-per-pixel)
-	  (dotimes (i (- (length bmp) offset))
+
+	  ;; bitmap stores it as aa rr gg bb
+	  ;; we want it as bb gg rr aa
+	  ;; BUT: we need to use premultiplied alpha 
+	  (do ((i 0 (+ i 4)))
+	      ((= i (- (length bmp) offset)))
+	    (let ((aa (aref bmp (+ offset i 0)))
+		  (bb (aref bmp (+ offset i 1)))
+		  (gg (aref bmp (+ offset i 2)))
+		  (rr (aref bmp (+ offset i 3))))
+	      (setf (aref bmp (+ offset i 0))
+		    (truncate (* bb aa) #xff)
+		    (aref bmp (+ offset i 1))
+		    (truncate (* gg aa) #xff)
+		    (aref bmp (+ offset i 2))
+		    (truncate (* rr aa) #xff)
+		    (aref bmp (+ offset i 3))
+		    aa)))
+	  
+	  (dotimes (i (- (length bmp) offset))	    
 	    (when (and (not (zerop i)) (zerop (mod i 16)))
-	      (format t "~%                        "))
-	    (format t "#x~2,'0X " (aref bmp (+ offset i))))
-	  (format t ")))~%"))
+	      (when (zerop (mod i 256))
+		(terpri stream))
+	      (format stream "~%                        "))
+	    (when (zerop (mod i 4))
+	      (format stream " "))
+	    (format stream "#x~2,'0X " (aref bmp (+ offset i))))
+	  (format stream ")))~%"))
 
 	nil))))
 
@@ -89,4 +119,100 @@ If FONT is not specified, the default system message font is used.
 " 
   (send-message hwnd (const +wm-setfont+) :wparam (or font (get-default-font))))
 
+
+(defun generate-icon-resource (filename &optional (stream *standard-output*) name)
+  "Generate Lisp code for a given icon so that it can be embedded into 
+Lisp code. This means you don't have to deliver the icon file separately. 
+This is equivalent to the .rc resources you link with when writing C.
+
+FILENAME ::= path to a .ico file containing the icon you want to use.
+Prints out code which should be included into your project.
+"
+  (with-open-file (f filename :direction :input :element-type '(unsigned-byte 8))
+    (let ((len (file-length f)))
+      (let ((ico (make-array len :element-type '(unsigned-byte 8))))
+	(read-sequence ico f)
+
+	;; icon file header -- see wikipedia entry for details 
+	(let ((type (nibbles:ub16ref/le ico 2))
+	      (width (aref ico 6))
+	      (height (aref ico 7))
+	      (planes (nibbles:ub16ref/le ico 10))
+	      (bits-per-pixel (nibbles:ub16ref/le ico 12))
+;;	      (size (nibbles:ub32ref/le ico 14))
+	      (offset (+ (nibbles:ub32ref/le ico 18) 40)))
+
+	  (unless (= type 1) (error "Expected type 2 got ~A" type))
+	  
+	  (format stream "(defvar ~A~%" (or name "NAME"))
+	  (format stream "        (create-icon ~A ~A ~A ~A~%"
+		  width height planes bits-per-pixel)
+	  (format stream "                     (make-array ~A :element-type '(unsigned-byte 8))~%"
+		  (- (length ico) offset))
+	  (format stream "                     #(")
+	  (dotimes (i (- (length ico) offset))
+	    (when (and (not (zerop i)) (zerop (mod i 16)))
+	      (format stream "~%                        "))
+	    (format stream "#x~2,'0X " (aref ico (+ offset i))))
+	  (format stream ")))~%"))
+
+	nil))))
+
+(defun generate-cursor-resource (filename &optional (stream *standard-output*) name)
+    "Generate Lisp code for a given cursor so that it can be embedded into 
+Lisp code. This means you don't have to deliver the cursor file separately. 
+This is equivalent to the .rc resources you link with when writing C.
+
+FILENAME ::= path to a .cur file containing the cursor you want to use.
+Prints out code which should be included into your project.
+"
+
+  (with-open-file (f filename :direction :input :element-type '(unsigned-byte 8))
+    (let ((len (file-length f)))
+      (let ((ico (make-array len :element-type '(unsigned-byte 8))))
+	(read-sequence ico f)
+
+	;; icon file header -- see wikipedia entry for details 
+	(let ((type (nibbles:ub16ref/le ico 2))
+	      (width (aref ico 6))
+	      (height (aref ico 7))
+	      (x (nibbles:ub16ref/le ico 10))
+	      (y (nibbles:ub16ref/le ico 12))
+;;	      (size (nibbles:ub32ref/le ico 14))
+	      (offset (+ (nibbles:ub32ref/le ico 18) 40)))
+
+	  (unless (= type 2) (error "Expected type 2 got ~A" type))
+	  
+	  (format stream "(defvar ~A~%" (or name "NAME"))
+	  (format stream "        (create-cursor ~A ~A ~A ~A~%"
+		  x y width height )
+	  (format stream "                     (make-array ~A :element-type '(unsigned-byte 8))~%"
+		  (- (length ico) offset))
+	  (format stream "                     #(")
+	  (dotimes (i (- (length ico) offset))
+	    (when (and (not (zerop i)) (zerop (mod i 16)))
+	      (format stream "~%                        "))
+	    (format stream "#x~2,'0X " (aref ico (+ offset i))))
+	  (format stream ")))~%"))
+
+	nil))))
+
+(defun generate-resource-file (filename resources &key package)
+  (with-open-file (stream filename :direction :output :if-exists :supersede)
+    (format stream "~%")
+    (format stream "(in-package #:~A)~%" (or package (package-name *package*)))
+    (format stream "~%")
+    (dolist (resource resources)
+      (destructuring-bind (res-type &rest res-args) resource
+	(ecase res-type
+	  (:icon
+	   (destructuring-bind (name icon-filename) res-args 
+	     (generate-icon-resource icon-filename stream name)))
+	  (:cursor
+	   (destructuring-bind (name cursor-filename) res-args
+	     (generate-cursor-resource cursor-filename stream name)))
+	  (:bitmap
+	   (destructuring-bind (name bitmap-filename) res-args
+	     (generate-bitmap-resource bitmap-filename stream name))))))
+    (format stream "~%")))
 

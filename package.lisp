@@ -312,6 +312,7 @@
        #:broadcast-system-message
        #:reply-message
        #:create-icon
+       #:create-cursor 
        #:destroy-icon
        #:draw-icon
        #:get-device-caps
@@ -320,14 +321,23 @@
        #:set-text-color
        #:get-text-color
        #:create-font-indirect 
-
-	   ;; ftw.lisp 
+       #:create-dib-section
+       #:set-di-bits
+       #:with-dc
+       #:with-compatible-dc
+       #:alpha-blend
+       
+       ;; ftw.lisp 
 	   #:set-default-font 
 	   #:default-message-loop
-       #:message-poll
-       #:generate-bitmap-resource 
+	   #:message-poll
+	   #:create-bitmap-resource 
+       #:generate-bitmap-resource
+       #:generate-icon-resource
+       #:generate-cursor-resource 
        #:get-default-font 
-
+       #:generate-resource-file
+       
            ))
            
            
