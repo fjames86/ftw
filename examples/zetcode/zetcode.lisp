@@ -1,3 +1,6 @@
+;;;; Copyright (c) Frank James 2016 <frank.a.james@gmail.com>
+;;;; This code is licensed under the MIT license.
+
 
 (defpackage #:ftw.zetcode
   (:use #:cl #:cffi #:ftw)

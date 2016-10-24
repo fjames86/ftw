@@ -20,7 +20,7 @@ the other C language resource.
 ## 2.1 Limitations
 Several functions accept IDs for so called "resources", which normally get linked
 in with the object code by the resource compiler (when writing in C). For
-obviously reasons this is not possible when using Lisp.
+obviously reasons this is not possible when using Lisp. 
 
 ## 2.2 Lispy CLOS based interface
 It would be nice to have a more Lispy CLOS based interface where you
@@ -56,6 +56,12 @@ This shows how to support drag and drop functionality by handling the WM_DROPFIL
 ## 3.4 Pong
 This is a small and not very well written example of how you might go about
 writing games. It's just a silly little pong game but shows the basic idea.
+
+## 3.5 Icon
+Shows how to add icons and other graphics
+
+## 3.6 Minesweeper
+Simple minesweeper game.
 
 # 4. Notes
 Requires CFFI. Developed on Windows 8.1 and Windows 7 but should work on

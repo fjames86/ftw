@@ -1,3 +1,5 @@
+;;;; Copyright (c) Frank James 2016 <frank.a.james@gmail.com>
+;;;; This code is licensed under the MIT license.
 
 ;;; This file defines a very thin FFI layer to the underlying User32.dll Gdi32.dll APIs.
 ;;; It should be enough to translate Win32 programs written in C into Lisp esentially directly. 
@@ -5,6 +7,8 @@
 
 (in-package #:ftw)
 
+;; Not quite switch because we don't have case/break statements
+;; but its good enough for our uses. 
 (defmacro switch (value &rest clauses)
   (let ((gvalue (gensym)))
     `(let ((,gvalue ,value))
@@ -70,17 +74,6 @@
   (t (:default "Msimg32")))
 
 (use-foreign-library msimg32)
-
-(define-foreign-library ole32
-  (t (:default "ole32")))
-
-(use-foreign-library ole32)
-
-(define-foreign-library oleaut32
-  (t (:default "oleaut32")))
-
-(use-foreign-library oleaut32)
-
 
 ;; -------------------- for errors ----------------------------
 
@@ -2492,8 +2485,19 @@ of this function so that users preferences are presented back to them.
   (bits-per-pixel :uint32)
   (bits :pointer))
 
+(defun validate-bitmap-data (width height planes bits-per-pixel data)
+  (unless (>= (length data)
+              (* width height planes
+                 (if (>= bits-per-pixel 8)
+                     (ceiling bits-per-pixel 8)
+                     1/8)))
+    (error "Data length ~A smaller than ~A * ~A * ~A * ~A"
+           (length data)
+           width height planes bits-per-pixel)))
+
 (defun create-bitmap (width height planes bits-per-pixel data)
   (with-foreign-object (bp :uint8 (length data))
+    (validate-bitmap-data width height planes bits-per-pixel data)
     (dotimes (i (length data))
       (setf (mem-aref bp :uint8 i) (aref data i)))
     (%create-bitmap width height 
@@ -4208,6 +4212,9 @@ of this function so that users preferences are presented back to them.
   (xor-bits :pointer))
 
 (defun create-icon (width height planes bits-per-pixel and-bits xor-bits)
+  (validate-bitmap-data width height planes bits-per-pixel and-bits)
+  (validate-bitmap-data width height planes bits-per-pixel xor-bits)
+
   (with-foreign-object (abits :uint8 (length and-bits))
     (with-foreign-object (xbits :uint8 (length xor-bits))
       (dotimes (i (max (length and-bits) (length xor-bits)))
@@ -4514,6 +4521,8 @@ of this function so that users preferences are presented back to them.
   (color-use :uint32))
 
 (defun set-di-bits (hdc bitmap width height planes bits-per-pixel data)
+  (validate-bitmap-data width height planes bits-per-pixel data)
+  
   (with-foreign-object (bmi '(:struct bitmapinfoheader))
     (bitmapinfoheader-foreign bmi width height planes bits-per-pixel)
     (with-foreign-object (bits :uint8 (length data))

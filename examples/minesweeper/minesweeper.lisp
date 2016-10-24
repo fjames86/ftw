@@ -1,3 +1,5 @@
+;;;; Copyright (c) Frank James 2016 <frank.a.james@gmail.com>
+;;;; This code is licensed under the MIT license.
 
 ;;; Simple minesweeper game
 ;;; Things which could be done and are left as an exercise to the reader:

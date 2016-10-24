@@ -1,5 +1,13 @@
+;;;; Copyright (c) Frank James 2016 <frank.a.james@gmail.com>
+;;;; This code is licensed under the MIT license.
 
 (in-package #:ftw)
+
+;;; This file defines all the many constants that Win32 programming requires.
+;;; Rather than exporting eaching of these from the FTW package we instead
+;;; provide a macro CONST which converts the stringy argument to a symbol
+;;; in the FTW package. This allows users to reference these constants easily. 
+
 
 (defmacro const (name)
   (intern (format nil "~A" name) "FTW"))

@@ -1,3 +1,5 @@
+;;;; Copyright (c) Frank James 2016 <frank.a.james@gmail.com>
+;;;; This code is licensed under the MIT license.
 
 ;;; This file defines a simple little turtle type program.
 ;;; Users should be able program its movements like you would with Logo.

@@ -1,6 +1,11 @@
+;;;; Copyright (c) Frank James 2016 <frank.a.james@gmail.com>
+;;;; This code is licensed under the MIT license.
 
 (defpackage #:ftw.icon
-  (:use #:cl #:cffi #:ftw))
+  (:use #:cl #:cffi #:ftw)
+  (:export #:test-icon
+           #:test-icon2
+           #:test-icon3))
 
 (in-package #:ftw.icon)
 
