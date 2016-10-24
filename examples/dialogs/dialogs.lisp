@@ -9,7 +9,7 @@
 ;; ----------- FindReplace ---------------
 
 ;; The FindReplace dialogs FindText and ReplaceText are
-;; modeless and therefore requirea little bit more work than
+;; modeless and therefore require a little bit more work than
 ;; the modal dialogs. This is because they require us allocating
 ;; buffers which live for the lifetime of the dialog. In addition
 ;; we must call IsDialogMessage() and intercept the FINDMSGSTRING
@@ -25,10 +25,11 @@
      (setf *fr* (find-text :hwnd hwnd)))
     ((get-findmsgstring)
      (multiple-value-bind (flags find replace) (foreign-findreplace (make-pointer lparam))
-       (format t "find replace ~S ~S ~S~%" flags find replace)))
+       (format t "find replace ~S ~S ~S~%" flags find replace)
+       (when (member :dialog-term flags)
+         (free-findreplace *fr*)
+         (setf *fr* nil))))
     ((const +wm-destroy+)
-     (free-findreplace *fr*)
-     (setf *fr* nil)
      (post-quit-message)))
   (default-window-proc hwnd msg wparam lparam))
 
@@ -54,6 +55,7 @@
         (let ((r (get-message msg)))
           (cond
             ((zerop r) (setf done t))
+            ;; Note: we need to call is-dialog-message in the mesasge loop as per MSDN instructions 
             ((not (is-dialog-message hwnd msg))
              (translate-message msg)
              (dispatch-message msg))))))))

@@ -329,12 +329,18 @@
        #:choose-font
        #:page-setup-dialog
        #:print-dialog
-       #:alloc-findreplace
        #:free-findreplace 
        #:get-findmsgstring
        #:foreign-findreplace
        #:find-text
        #:replace-text
+       #:open-printer
+       #:start-doc-printer
+       #:start-page-printer
+       #:write-printer
+       #:end-page-printer
+       #:end-doc-printer
+       #:close-printer
        
        ;; ftw.lisp provides some extra useful utilities 
        #:set-accelerator-table 

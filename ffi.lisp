@@ -75,6 +75,17 @@
 
 (use-foreign-library msimg32)
 
+(define-foreign-library winspool
+  (t (:default "winspool")))
+
+(cffi::load-foreign-library-path 'winspool "winspool.drv")
+
+(define-foreign-library spoolss
+  (t (:default "Spoolss")))
+
+(use-foreign-library spoolss)
+
+
 ;; -------------------- for errors ----------------------------
 
 (defcfun (%format-message "FormatMessageA" :convention :stdcall)
@@ -4940,6 +4951,7 @@ that the user chose. In addition the driver, printer and output names are return
 
 (defstruct findreplace
   hwnd
+  parent 
   flags
 
   fr-buffer 
@@ -4979,7 +4991,7 @@ that the user chose. In addition the driver, printer and output names are return
 
 (defun alloc-findreplace (&key hwnd flags)
   (make-findreplace
-   :hwnd hwnd
+   :parent hwnd
    :flags (pack-findreplace-flags flags)
 
    :fr-buffer (foreign-alloc '(:struct findreplace))
@@ -5006,7 +5018,7 @@ that the user chose. In addition the driver, printer and output names are return
     (setf (foreign-slot-value p '(:struct findreplace) 'size)
           (foreign-type-size '(:struct findreplace))
           (foreign-slot-value p '(:struct findreplace) 'hwnd)
-          (or (findreplace-hwnd fr) (null-pointer))
+          (or (findreplace-parent fr) (null-pointer))
           (foreign-slot-value p '(:struct findreplace) 'flags)
           (findreplace-flags fr)
           (foreign-slot-value p '(:struct findreplace) 'find-what)
@@ -5033,8 +5045,9 @@ that the user chose. In addition the driver, printer and output names are return
 
 (defun replace-text (&key hwnd flags)
   (let ((fr (alloc-findreplace :hwnd hwnd :flags flags)))
-    (%replace-text (findreplace-foreign fr))
-    fr))
+    (let ((h (%replace-text (findreplace-foreign fr))))
+      (setf (findreplace-hwnd fr) h)
+      fr)))
 
 (defcfun (%find-text "FindTextW" :convention :stdcall)
     :pointer
@@ -5042,7 +5055,103 @@ that the user chose. In addition the driver, printer and output names are return
 
 (defun find-text (&key hwnd flags)
   (let ((fr (alloc-findreplace :hwnd hwnd :flags flags)))
-    (%find-text (findreplace-foreign fr))
-    fr))
+    (let ((h (%find-text (findreplace-foreign fr))))
+      (setf (findreplace-hwnd fr) h)
+      fr)))
+
+
+(defcfun (%open-printer "OpenPrinterW" :convention :stdcall)
+    :boolean
+  (printer-name :pointer)
+  (handle :pointer)
+  (default :pointer))
+
+(defun open-printer (printer-name)
+  (with-foreign-object (handle :pointer)
+    (with-wide-string (s printer-name)
+      (let ((res (%open-printer s handle (null-pointer))))
+        (when res 
+          (mem-aref handle :pointer))))))
+
+(defcstruct docinfo
+  (size :int32)
+  (name :pointer)
+  (output :pointer)
+  (datatype :pointer)
+  (type :uint32))
+
+(defcfun (%start-doc-printer "StartDocPrinterW" :convention :stdcall)
+    :uint32
+  (hprinter :pointer)
+  (level :uint32)
+  (docinfo :pointer))
+
+(defun start-doc-printer (hprinter &key name output datatype)
+  (with-foreign-object (lp '(:struct docinfo))
+    (with-wide-string (n (or name ""))
+      (with-wide-string (o (or output ""))
+        (with-wide-string (d (or datatype ""))
+          (setf (foreign-slot-value lp '(:struct docinfo) 'size)
+                (foreign-type-size '(:struct docinfo))
+                (foreign-slot-value lp '(:struct docinfo) 'name)
+                (if name n (null-pointer))
+                (foreign-slot-value lp '(:struct docinfo) 'output)
+                (if output o (null-pointer))
+                (foreign-slot-value lp '(:struct docinfo) 'datatype)
+                (if datatype d (null-pointer))
+                (foreign-slot-value lp '(:struct docinfo) 'type)
+                0)
+          (let ((res (%start-doc-printer hprinter
+                                         1
+                                         lp)))
+            (unless (= res 0)
+              res)))))))
+                
+(defcfun (%start-page-printer "StartPagePrinter" :convention :stdcall)
+    :boolean
+  (hprinter :pointer))
+
+(defun start-page-printer (hprinter)
+  (let ((res (%start-page-printer hprinter)))
+    (unless (zerop res)
+      res)))
+
+(defcfun (%write-printer "WritePrinter" :convention :stdcall)
+    :boolean
+  (hprinter :pointer)
+  (buffer :pointer)
+  (count :uint32)
+  (written :pointer))
+
+(defun write-printer (hprinter data)
+  (with-foreign-object (buffer :uint8 (length data))
+    (with-foreign-object (nbytes :uint32)
+      (dotimes (i (length data))
+        (setf (mem-aref buffer :uint8 i) (aref data i)))
+      (let ((res (%write-printer hprinter buffer (length data) nbytes)))
+        (if res
+            (values t (mem-aref nbytes :uint32))
+            (values nil nil))))))
+
+(defcfun (%end-page-printer "EndPagePrinter" :convention :stdcall)
+    :boolean
+  (hprinter :pointer))
+
+(defun end-page-printer (hprinter)
+  (%end-page-printer hprinter))
+
+(defcfun (%end-doc-printer "EndDocPrinter" :convention :stdcall)
+    :boolean
+  (hprinter :pointer))
+
+(defun end-doc-printer (hprinter)
+  (%end-doc-printer hprinter))
+
+(defcfun (%close-printer "ClosePrinter" :convention :stdcall)
+    :boolean
+  (hprinter :pointer))
+
+(defun close-printer (hprinter)
+  (%close-printer hprinter))
 
 
