@@ -1552,3 +1552,5 @@ All reason aside, I just can't deny, love the guy.
 
 (defun drawbitmap ()
   (zetcode-main "ZETCODE_DRAWBITMAP" (callback drawbitmap-wndproc)))
+
+;; ---------------------------------------

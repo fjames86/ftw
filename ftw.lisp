@@ -244,3 +244,37 @@ Prints out code which should be included into your project.
   (let ((r (get-client-rect hwnd)))
     (values (getf r :right 0)
             (getf r :bottom 0))))
+
+
+(defun add-menu-bar (hwnd menus)
+  "Add menu bar to the window. 
+MENUS ::= MENU* 
+MENU ::= type flags &key name id children
+where 
+TYPE ::= :menu | :item | :check | :radio 
+FLAGS ::= list of flags to be passed to append-menu 
+NAME ::= string naming the item 
+ID ::= integer identifier 
+CHILDREN ::= MENU* menu children 
+" 
+  (labels ((process-menu (parent menu)
+             (destructuring-bind (type flags &key name id children) menu
+               (ecase type
+                 (:menu
+                  (let ((m (create-menu)))
+                    (dolist (child children)
+                      (process-menu m child))
+                    (append-menu parent flags m name)))
+                 (:item
+                  (append-menu parent flags (or id 0) name))
+		 (:check
+		  (check-menu-item parent (or id 0) (member :checked flags)))
+		 (:radio
+		  (check-menu-radio-item parent
+					 (first flags) (second flags)
+					 (or id 0)))))))
+    (let ((bar (create-menu)))
+      (dolist (menu menus)
+        (process-menu bar menu))
+
+      (set-menu hwnd bar))))

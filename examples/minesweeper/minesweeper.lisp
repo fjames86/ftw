@@ -102,29 +102,6 @@
 
 (defvar *ms* nil)
 
-(defun add-menu-bar (hwnd menus)
-  (labels ((process-menu (parent menu)
-             (destructuring-bind (type flags &key name id children) menu
-               (ecase type
-                 (:menu
-                  (let ((m (create-menu)))
-                    (dolist (child children)
-                      (process-menu m child))
-                    (append-menu parent flags m name)))
-                 (:item
-                  (append-menu parent flags (or id 0) name))
-		 (:check
-		  (check-menu-item parent (or id 0) (member :checked flags)))
-		 (:radio
-		  (check-menu-radio-item parent
-					 (first flags) (second flags)
-					 (or id 0)))))))
-    (let ((bar (create-menu)))
-      (dolist (menu menus)
-        (process-menu bar menu))
-
-      (set-menu hwnd bar))))
-
 (defwndproc minesweeper-wndproc (hwnd msg wparam lparam)
   (switch msg
     ((const +wm-create+)

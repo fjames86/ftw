@@ -329,6 +329,12 @@
        #:choose-font
        #:page-setup-dialog
        #:print-dialog
+       #:alloc-findreplace
+       #:free-findreplace 
+       #:get-findmsgstring
+       #:foreign-findreplace
+       #:find-text
+       #:replace-text
        
        ;; ftw.lisp provides some extra useful utilities 
        #:set-accelerator-table 
@@ -342,6 +348,7 @@
        #:get-default-font 
        #:generate-resource-file
        #:get-client-size
+       #:add-menu-bar
        
            ))
            

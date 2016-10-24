@@ -4923,3 +4923,126 @@ that the user chose. In addition the driver, printer and output names are return
                 
                       
           
+
+
+(defcstruct findreplace
+  (size :uint32)
+  (hwnd :pointer)
+  (instance :pointer)
+  (flags :uint32)
+  (find-what :pointer)
+  (replace-with :pointer)
+  (find-len :uint16)
+  (replace-len :uint16)
+  (cust-data lparam)
+  (hook :pointer)
+  (template-name :pointer))
+
+(defstruct findreplace
+  hwnd
+  flags
+
+  fr-buffer 
+  fw-buffer
+  fw-len
+  rw-buffer
+  rw-len)
+
+(defun pack-findreplace-flags (flags)
+  (mergeflags flags
+              (:dialog-term #x40)
+              (:down #x1)
+              (:find-next #x08)
+              (:hide-updown #x4000)
+              (:hide-match-case #x8000)
+              (:hide-whole-word #x10000)
+              (:match-case #x4)
+              (:no-match-case #x800)
+              (:no-updown #x400)
+              (:no-whole-word #x1000)
+              (:replace #x10)
+              (:replace-all #x20)
+              (:show-help #x80)
+              (:whole-word #x2)))
+
+(defun unpack-findreplace-flags (f)
+  (let ((flags nil))
+    (mapc (lambda (name value)
+            (unless (zerop (logand f value))
+              (push name flags)))
+          '(:dialog-term :down :find-next :hide-updown
+            :hide-match-case :hide-whole-word :match-case
+            :no-match-case :no-updown :no-whole-word
+            :replace :replace-all :show-help :whole-word)
+          '(#x40 #x1 #x8 #x4000 #x8000 #x10000 #x4 #x800 #x400 #x1000 #x10 #x20 #x80 #x2))
+    flags))
+
+(defun alloc-findreplace (&key hwnd flags)
+  (make-findreplace
+   :hwnd hwnd
+   :flags (pack-findreplace-flags flags)
+
+   :fr-buffer (foreign-alloc '(:struct findreplace))
+   :fw-buffer (foreign-alloc :uint8 :count 256)
+   :fw-len 256 
+   :rw-buffer (foreign-alloc :uint8 :count 256)
+   :rw-len 256))
+
+(defun free-findreplace (fr)
+  (foreign-free (findreplace-fw-buffer fr))
+  (foreign-free (findreplace-rw-buffer fr))
+  (foreign-free (findreplace-fr-buffer fr)))
+
+(defun get-findmsgstring ()
+  (register-window-message "commdlg_FindReplace"))
+
+(defun findreplace-foreign (fr)
+  ;; we already have allocated the buffer
+  (let ((p (findreplace-fr-buffer fr)))
+    (memset p (foreign-type-size '(:struct findreplace)))
+    (memset (findreplace-fw-buffer fr) (findreplace-fw-len fr))
+    (memset (findreplace-rw-buffer fr) (findreplace-rw-len fr))
+    
+    (setf (foreign-slot-value p '(:struct findreplace) 'size)
+          (foreign-type-size '(:struct findreplace))
+          (foreign-slot-value p '(:struct findreplace) 'hwnd)
+          (or (findreplace-hwnd fr) (null-pointer))
+          (foreign-slot-value p '(:struct findreplace) 'flags)
+          (findreplace-flags fr)
+          (foreign-slot-value p '(:struct findreplace) 'find-what)
+          (findreplace-fw-buffer fr)
+          (foreign-slot-value p '(:struct findreplace) 'replace-with)
+          (findreplace-rw-buffer fr)
+          (foreign-slot-value p '(:struct findreplace) 'find-len)
+          (findreplace-fw-len fr)
+          (foreign-slot-value p '(:struct findreplace) 'replace-len)
+          (findreplace-rw-len fr))
+    p))
+(defun foreign-findreplace (p)
+  (values (unpack-findreplace-flags (foreign-slot-value p '(:struct findreplace) 'flags))
+          (let ((s (foreign-slot-value p '(:struct findreplace) 'find-what)))
+            (unless (null-pointer-p s)
+              (foreign-string-to-lisp s :encoding :ucs-2le)))
+          (let ((s (foreign-slot-value p '(:struct findreplace) 'replace-with)))
+            (unless (null-pointer-p s)
+              (foreign-string-to-lisp s :encoding :ucs-2le)))))
+
+(defcfun (%replace-text "ReplaceTextW" :convention :stdcall)
+    :pointer
+  (lp :pointer))
+
+(defun replace-text (&key hwnd flags)
+  (let ((fr (alloc-findreplace :hwnd hwnd :flags flags)))
+    (%replace-text (findreplace-foreign fr))
+    fr))
+
+(defcfun (%find-text "FindTextW" :convention :stdcall)
+    :pointer
+  (lp :pointer))
+
+(defun find-text (&key hwnd flags)
+  (let ((fr (alloc-findreplace :hwnd hwnd :flags flags)))
+    (%find-text (findreplace-foreign fr))
+    fr))
+
+
