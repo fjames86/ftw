@@ -1,11 +1,21 @@
 
+;;; Simple minesweeper game
+;;; Things which could be done and are left as an exercise to the reader:
+;;; 1. Adding icons/images instead of using text for the numbers, mines and flags.
+;;; 2. Keeping a high-score list saved away e.g. in current user's home directory.
+;;; 3. Writing a proper "about" dialog.
+;;; 4. Dialog for entering arbitrary game sizes.
+;;; 5. Automatically clicking on provable empty cells
+;;; 6. Win detection 
+;;; 7. Automatically resizing main window to the size of the game board
+
+
 (defpackage #:ftw.minesweeper
   (:use #:cl #:cffi #:ftw)
   (:export #:minesweeper))
 
 (in-package #:ftw.minesweeper)
 
-;;; Simple minesweeper game
 
 (defstruct minesweeper
   x y
@@ -89,7 +99,6 @@
 
 
 (defvar *ms* nil)
-(defvar *accel* nil)
 
 (defun add-menu-bar (hwnd menus)
   (labels ((process-menu (parent menu)
@@ -153,10 +162,9 @@
 		      :menu 5))
      
      ;; create accelerator table
-     (setf *accel*
-	   (create-accelerator-table
-	    `(((:control :virtual-key) :keyn 1)
-	      ((:control :virtual-key) :keyq 2))))
+     (set-accelerator-table
+      '((:keyn 1 :control :virtual-key)
+        (:keyq 2 :control :virtual-key)))
 
      (set-timer :hwnd hwnd :elapse 1000 :replace-timer 4))
     ((const +wm-paint+)
@@ -258,7 +266,10 @@
 	(destroy-window hwnd))
        (3 ;; about
 	(message-box :hwnd hwnd
-		     :text "Minesweeper in Lisp"
+		     :text "Simple minesweeper game written in Common Lisp.
+
+Copyright (c) Frank James 2016.
+"
 		     :caption "About"))
        (5 ;; new
 	(setf *ms* (random-game))
@@ -294,34 +305,16 @@
 			 45 22)))
      (invalidate-rect hwnd nil t))
     ((const +wm-destroy+)
-     (destroy-accelerator-table *accel*)
-     (setf *accel* nil)
+     (set-accelerator-table)
      (post-quit-message)))
   (default-window-proc hwnd msg wparam lparam))
 
 
 (defun minesweeper ()
-  (register-class "FTW_MINESWEEPER" 
-                  (callback minesweeper-wndproc)
-                  :background (get-sys-color-brush :3d-face)
-                  :icon (load-icon :application)
-                  :cursor (load-cursor :arrow))
-  (let ((hwnd (create-window "FTW_MINESWEEPER" 
-                             :window-name "Minesweeper"
-                             :styles '(:overlapped-window :visible)
-                             :x 100 :y 100 :width 350 :height 425))
-        (msg (make-msg)))    
-    (unwind-protect
-         (progn
-           (show-window hwnd)
-           (update-window hwnd)
-	   (set-foreground-window hwnd)
-           (do ((done nil))
-               (done)
-             (let ((r (get-message msg)))
-               (cond
-                 ((= r 0) (setf done t))
-                 ((zerop (translate-accelerator hwnd *accel* msg))
-                  (translate-message msg)
-                  (dispatch-message msg))))))
-      (unregister-class "FTW_MINESWEEPER"))))
+  (default-message-loop (callback minesweeper-wndproc)
+      :class-name "FTW_MINESWEEPER"
+      :title "Minesweeper"
+      :width 350 :height 425))
+
+
+  

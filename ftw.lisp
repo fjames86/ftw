@@ -4,10 +4,30 @@
 
 (in-package #:ftw)
 
+
+(defvar *accel* nil
+  "FTW's global accelerator table.")
+
+(defun set-accelerator-table (&optional entries)
+  "Destroy the existing accelerator table (if any) and set new table.
+ENTRIES ::= new accelerator table to set. 
+
+The existing accelerator table is always destroyed. If ENTRIES is non-nil 
+then a new table is set.
+"
+  (when *accel*
+    (destroy-accelerator-table *accel*)
+    (setf *accel* nil))
+  (when entries 
+    (setf *accel* (create-accelerator-table entries))))
+
+
 (defun default-message-loop (wndproc &key class-name title width height background icon)
   "Standard message loop. Defines a new window class with :arrow cursor and 3d-face background,
 creates an overlapped, visible  window of this class. Shows, updates and sets this window to 
 the foreground. Then loops, processing messages, until a WM_QUIT message is received.
+
+Also processes accelerator keys set using SET-ACCELERATOR-TABLE.
 " 
   (let ((cname (or class-name "FTW_MAIN_CLASS")))
     (register-class cname 
@@ -30,7 +50,8 @@ the foreground. Then loops, processing messages, until a WM_QUIT message is rece
         (let ((r (get-message msg)))
           (cond
             ((zerop r) (setf done t))
-            (t
+            ((or (null *accel*)
+                 (zerop (translate-accelerator hwnd *accel* msg)))
              (translate-message msg)
              (dispatch-message msg))))))))
 
@@ -216,3 +237,8 @@ Prints out code which should be included into your project.
 	     (generate-bitmap-resource bitmap-filename stream name))))))
     (format stream "~%")))
 
+(defun get-client-size (hwnd)
+  "Get width and height of the hwnd. Returns (values width height)." 
+  (let ((r (get-client-rect hwnd)))
+    (values (getf r :right 0)
+            (getf r :bottom 0))))

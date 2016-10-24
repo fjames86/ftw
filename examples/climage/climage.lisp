@@ -260,8 +260,8 @@ Copyright (c) Frank James 2016.
   ;; create accelerator table for the find menu item 
   (setf *accel*
         (create-accelerator-table
-         `(((:control :virtual-key) :keyf ,(window-id (window-by-name 'find-menu-item)))
-           ((:control :virtual-key) :keyq ,(window-id (window-by-name 'quit-menu-item))))))
+         `((:keyf ,(window-id (window-by-name 'find-menu-item)) :control :virtual-key)
+           (:keyq ,(window-id (window-by-name 'quit-menu-item)) :control :virtual-key))))
   
   ;; add all the controls 
   (let ((h (create-window :static

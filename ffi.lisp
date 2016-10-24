@@ -3729,7 +3729,7 @@ Return is keywork specifying button user clicked."
     (do ((i 0 (1+ i))
 	 (e entries (cdr e)))
 	((null e))
-      (destructuring-bind (virt key cmd) (car e)
+      (destructuring-bind (key cmd &rest virt) (car e)
 	(let ((p (mem-aptr a '(:struct accel) i)))
 	(setf (foreign-slot-value p '(:struct accel) 'virt)
 	      (mergeflags (if (listp virt) virt (list virt))

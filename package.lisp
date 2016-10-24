@@ -327,7 +327,8 @@
        #:with-compatible-dc
        #:alpha-blend
        
-       ;; ftw.lisp 
+       ;; ftw.lisp provides some extra useful utilities 
+       #:set-accelerator-table 
 	   #:set-default-font 
 	   #:default-message-loop
 	   #:message-poll
@@ -337,6 +338,7 @@
        #:generate-cursor-resource 
        #:get-default-font 
        #:generate-resource-file
+       #:get-client-size
        
            ))
            
