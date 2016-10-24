@@ -326,6 +326,9 @@
        #:with-dc
        #:with-compatible-dc
        #:alpha-blend
+       #:choose-font
+       #:page-setup-dialog
+       #:print-dialog
        
        ;; ftw.lisp provides some extra useful utilities 
        #:set-accelerator-table 

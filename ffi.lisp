@@ -71,6 +71,17 @@
 
 (use-foreign-library msimg32)
 
+(define-foreign-library ole32
+  (t (:default "ole32")))
+
+(use-foreign-library ole32)
+
+(define-foreign-library oleaut32
+  (t (:default "oleaut32")))
+
+(use-foreign-library oleaut32)
+
+
 ;; -------------------- for errors ----------------------------
 
 (defcfun (%format-message "FormatMessageA" :convention :stdcall)
@@ -1970,6 +1981,11 @@ Return is keywork specifying button user clicked."
   (name :pointer))
 
 (defun choose-color (&key hwnd instance initial-color custom-colors flags)
+  "Show the ChooseColor() dialog. 
+Returns the colour chosen and the list of 16 custom colours the user selected.
+These should be fed back in as the CUSTOM-COLORS parameter on subsequent uses 
+of this function so that users preferences are presented back to them.
+" 
   (with-foreign-object (c '(:struct choosecolor))
     (with-foreign-object (cc :uint32 16)
       (memset c (foreign-type-size '(:struct choosecolor)))
@@ -2006,12 +2022,12 @@ Return is keywork specifying button user clicked."
 			(:solid-color #x80)))
 
       (let ((result (%choose-color c)))
-	(values result
-		(foreign-slot-value c '(:struct choosecolor) 'result)
-		(do ((i 0 (1+ i))
-		     (clist nil))
-		    ((= i 16) (nreverse clist))
-		  (push (mem-aref cc :uint32 i) clist)))))))
+        (when result 
+          (values (foreign-slot-value c '(:struct choosecolor) 'result)
+                  (do ((i 0 (1+ i))
+                       (clist nil))
+                      ((= i 16) (nreverse clist))
+                    (push (mem-aref cc :uint32 i) clist))))))))
 
 
 
@@ -4540,3 +4556,361 @@ Return is keywork specifying button user clicked."
 			     (mem-aref f :uint32 0))))
       (unless res (get-last-error)))))
 
+(defcfun (%choose-font "ChooseFontW" :convention :stdcall)
+    :boolean
+  (lp :pointer))
+
+(defcstruct choosefont
+  (size :uint32)
+  (hwnd :pointer)
+  (hdc :pointer)
+  (logfont :pointer)
+  (pointsize :int32)
+  (flags :uint32)
+  (colors :uint32)
+  (param lparam)
+  (hook :pointer)
+  (templatename :pointer)
+  (instance :pointer)
+  (style :pointer)
+  (fonttype :uint16)
+  (sizemin :int32)
+  (sizemax :int32))
+
+(defvar *choose-font-hook* nil)
+
+(defwndproc choose-font-hook (hwnd msg wparam lparam)
+  (if *choose-font-hook*
+      (funcall *choose-font-hook* hwnd msg wparam lparam)
+      0))
+
+(defun choose-font (&key hwnd hdc logfont flags color style size-min size-max hook lparam)
+  "Display the ChooseFont() default dialog. See the MSDN documentation for more information.
+
+HOOK ::= a function accepting (hwnd msg wparam lparam) arguments. Use this to capture 
+and possibly process messages for the dialog.
+"
+
+  (with-foreign-objects ((lp '(:struct choosefont))
+                         (style-buffer :uint16 64)
+                         (lf '(:struct logfont)))
+    ;; initialize style buffer
+    (when style
+      (lisp-string-to-foreign style style-buffer (* 64 2)
+                              :encoding :ucs-2le))
+    
+    ;; initialize logfont 
+    (if logfont
+        (logfont-foreign logfont lf)
+        (memset lf (foreign-type-size '(:struct logfont))))
+
+    (setf *choose-font-hook* hook)
+    (pushnew :enable-hook flags)
+    
+    ;; initialize choosefont structure
+    (memset lp (foreign-type-size '(:struct choosefont)))
+    (setf (foreign-slot-value lp '(:struct choosefont) 'size)
+          (foreign-type-size '(:struct choosefont))
+          (foreign-slot-value lp '(:struct choosefont) 'hwnd)
+          (or hwnd (null-pointer))
+          (foreign-slot-value lp '(:struct choosefont) 'hdc)
+          (or hdc (null-pointer))
+          (foreign-slot-value lp '(:struct choosefont) 'logfont)
+          lf
+          (foreign-slot-value lp '(:struct choosefont) 'flags)
+          (mergeflags flags
+                      (:apply #x200)
+                      (:both #x03)
+                      (:effects #x100)
+                      (:enable-hook #x8)
+                      (:fixed-pitch-only #x4000)
+                      (:force-font-exist #x10000)
+                      (:inactive-fonts #x02000000)
+                      (:init-logfont #x40)
+                      (:limit-size #x2000)
+                      (:no-oem-fonts #x800)
+                      (:no-face-sel #x80000)
+                      (:no-script-sel #x00800000)
+                      (:no-simulations #x1000)
+                      (:no-sizes-sel #x00200000)
+                      (:no-style-sel #x00100000)
+                      (:no-vector-fonts #x800)
+                      (:no-vert-fonts #x01000000)
+                      (:printer-fonts #x2)
+                      (:scalable-only #x00020000)
+                      (:screen-fonts #x1)
+                      (:scripts-only #x400)
+                      (:select-script #x00400000)
+                      (:show-help #x4)
+                      (:tt-only #x00040000)
+                      (:use-style #x80))
+          (foreign-slot-value lp '(:struct choosefont) 'colors)
+          (or color 0)
+
+          ;; Important note:
+          ;; We MUST set the hook callback even if we don't need or want it.
+          ;; This is because otherwise the dialog has a "Show more fonts" button.
+          ;; If the use clicks on that button it kicks off a whole load of pain
+          ;; which ultimately crashes the Lisp image. I believe it ends up kicking
+          ;; off about 5 threads and doing loads of COM stuff which must do something
+          ;; unpleasant to us. But if I provide a hook callback even if it does nothing
+          ;; that button is not displayed and it all works fine.
+          (foreign-slot-value lp '(:struct choosefont) 'hook)
+          (callback choose-font-hook)
+          (foreign-slot-value lp '(:struct choosefont) 'param)
+          (or lparam 0)
+          (foreign-slot-value lp '(:struct choosefont) 'style)
+          (if style style-buffer (null-pointer))
+          (foreign-slot-value lp '(:struct choosefont) 'sizemin)
+          (or size-min 0)
+          (foreign-slot-value lp '(:struct choosefont) 'sizemax)
+          (or size-max 0))
+
+    (let ((res (%choose-font lp)))
+      (when res
+        (values res
+                (foreign-logfont lf)
+                (foreign-slot-value lp '(:struct choosefont) 'pointsize)
+                (foreign-slot-value lp '(:struct choosefont) 'colors)
+                (foreign-string-to-lisp style-buffer :encoding :ucs-2le)
+                (let ((ft (foreign-slot-value lp '(:struct choosefont) 'fonttype)))
+                  (let ((f nil))
+                    (mapc (lambda (name value)
+                            (unless (zerop (logand ft value)) (push name f)))
+                          '(:bold :italic :printer :regular :screen :simulated)
+                          '(#x100 #x200   #x4000   #x400    #x2000  #x8000))
+                    f)))))))
+
+
+
+
+
+
+(defcfun (%global-lock "GlobalLock" :convention :stdcall)
+    :pointer
+  (handle :pointer))
+
+(defun global-lock (handle)
+  (%global-lock handle))
+
+(defcfun (%global-unlock "GlobalUnlock" :convention :stdcall)
+    :boolean
+  (handle :pointer))
+
+(defun global-unlock (handle)
+  (%global-unlock handle))
+
+(defcfun (%global-free "GlobalFree" :convention :stdcall)
+    :pointer
+  (handle :pointer))
+
+(defun global-free (handle)
+  (%global-free handle))
+
+(defcstruct devnames
+  (driver-offset :uint16)
+  (device-offset :uint16)
+  (output-offset :uint16)
+  (default :uint16))
+
+
+(defcfun (%page-setup-dlg "PageSetupDlgW" :convention :stdcall)
+    :boolean
+  (lp :pointer))
+
+(defcstruct psd
+  (size :uint32)
+  (hwnd :pointer)
+  (dev-mode :pointer)
+  (dev-names :pointer)
+  (flags :uint32)
+  (paper-size (:struct point))
+  (min-margin (:struct rect))
+  (margin (:struct rect))
+  (instance :pointer)
+  (cust-data lparam)
+  (pagesetup-hook :pointer)
+  (pagepaint-hook :pointer)
+  (template-name :pointer)
+  (pagesetup-template :pointer))
+
+(defun page-setup-dialog (&key hwnd flags)
+  "Show the  page setup dialog PageSetupDlg(). See MSDN for documentation.
+
+Returns a plist containing the paper size, margin, min margin and printer values
+the user chose.
+"
+  (with-foreign-object (psd '(:struct psd))
+
+    (memset psd (foreign-type-size '(:struct psd)))
+    (setf (foreign-slot-value psd '(:struct psd) 'size)
+          (foreign-type-size '(:struct psd))
+          (foreign-slot-value psd '(:struct psd) 'hwnd)
+          (or hwnd (null-pointer))
+          (foreign-slot-value psd '(:struct psd) 'flags)
+          (mergeflags flags
+                      (:default-margins #x0)
+                      (:disable-margins #x10)
+                      (:disable-orientation #x100)
+                      (:disable-page-painting #x80000)
+                      (:disable-paper #x200)
+                      (:in-hundredths-of-millimeters #x8)
+                      (:in-thousandths-of-millimeters #x4)
+                      (:margin #x2)
+                      (:min-margins #x1)
+                      (:no-warning #x80)
+                      (:show-help #x800)))
+    (let ((res (%page-setup-dlg psd)))
+      (when res
+        (let ((dev-mode (foreign-slot-value psd '(:struct psd) 'dev-mode))
+              (dev-names (foreign-slot-value psd '(:struct psd) 'dev-names))
+              (driver nil)
+              (device nil)
+              (output nil))
+          (unless (null-pointer-p dev-names)
+            (let ((dev-names-p (global-lock dev-names)))
+              (setf driver
+                    (foreign-string-to-lisp (inc-pointer dev-names-p
+                                                         (* (foreign-slot-value dev-names-p
+                                                                                '(:struct devnames)
+                                                                                'driver-offset)
+                                                            2))
+                                            :encoding :ucs-2le)
+                    device
+                    (foreign-string-to-lisp (inc-pointer dev-names-p
+                                                         (* (foreign-slot-value dev-names-p
+                                                                                '(:struct devnames)
+                                                                                'device-offset)
+                                                            2))
+                                            :encoding :ucs-2le)
+                    output
+                    (foreign-string-to-lisp (inc-pointer dev-names-p
+                                                         (* (foreign-slot-value dev-names-p
+                                                                                '(:struct devnames)
+                                                                                'output-offset)
+                                                            2))
+                                            :encoding :ucs-2le)))
+            (global-unlock dev-names)
+            (global-free dev-names)
+            (global-free dev-mode))
+
+          (list :paper-size (foreign-point (foreign-slot-pointer psd '(:struct psd) 'paper-size))
+                :margin (foreign-rect (foreign-slot-pointer psd '(:struct psd) 'margin)
+                                      (make-rect))
+                :min-margin (foreign-rect (foreign-slot-pointer psd '(:struct psd) 'min-margin)
+                                          (make-rect))
+                :driver driver
+                :device device
+                :output output))))))
+
+(defcfun (%print-dlg "PrintDlgW" :convention :stdcall)
+    :boolean
+  (lp :pointer))
+
+(defcstruct pd
+  (size :uint32)
+  (hwnd :pointer)
+  (dev-mode :pointer)
+  (dev-names :pointer)
+  (hdc :pointer)
+  (flags :uint32)
+  (from-page :uint16)
+  (to-page :uint16)
+  (min-page :uint16)
+  (max-page :uint16)
+  (ncopies :uint16)
+  (instance :pointer)
+  (cust-data lparam)
+  (print-hook :pointer)
+  (setup-hook :pointer)
+  (print-template-name :pointer)
+  (setup-template-name :pointer)
+  (print-template :pointer)
+  (setup-template :pointer))
+
+(defun print-dialog (&key hwnd flags from-page to-page min-page max-page ncopies)
+  "Show the print dialog PrintDlg(). See MSDN for more documentation.
+
+Returns a plist containing the values for from-page, to-page, min-page, max-page, ncopies
+that the user chose. In addition the driver, printer and output names are returned if availble.
+"
+  
+  (with-foreign-object (pd '(:struct pd))
+    (memset pd (foreign-type-size '(:struct pd)))
+
+    (setf (foreign-slot-value pd '(:struct pd) 'size)
+          (foreign-type-size '(:struct pd))
+          (foreign-slot-value pd '(:struct pd) 'hwnd)
+          (or hwnd (null-pointer))
+          (foreign-slot-value pd '(:struct pd) 'flags)
+          (mergeflags flags
+                      (:all-pages #x0)
+                      (:collate #x10)
+                      (:disable-print-to-file #x80000)
+                      (:hide-print-to-file #x00100000)
+                      (:no-network-button #x00200000)
+                      (:no-page-nums #x8)
+                      (:no-selection #x4)
+                      (:no-warning #x80)
+                      (:page-nums #x2)
+                      (:print-setup #x40)
+                      (:print-to-file #x20)
+                      (:selection #x1)
+                      (:show-help #x800))
+          (foreign-slot-value pd '(:struct pd) 'from-page)
+          (or from-page 0)
+          (foreign-slot-value pd '(:struct pd) 'to-page)
+          (or to-page 0)
+          (foreign-slot-value pd '(:struct pd) 'min-page)
+          (or min-page 0)
+          (foreign-slot-value pd '(:struct pd) 'max-page)
+          (or max-page 0)
+          (foreign-slot-value pd '(:struct pd) 'ncopies)
+          (or ncopies 0))
+
+    (let ((res (%print-dlg pd)))
+      (when res
+        (let ((dev-mode (foreign-slot-value pd '(:struct pd) 'dev-mode))
+              (dev-names (foreign-slot-value pd '(:struct pd) 'dev-names))
+              (driver nil)
+              (device nil)
+              (output nil))
+          (unless (null-pointer-p dev-names)
+            (let ((dev-names-p (global-lock dev-names)))
+              (setf driver
+                    (foreign-string-to-lisp (inc-pointer dev-names-p
+                                                         (* (foreign-slot-value dev-names-p
+                                                                                '(:struct devnames)
+                                                                                'driver-offset)
+                                                            2))
+                                            :encoding :ucs-2le)
+                    device
+                    (foreign-string-to-lisp (inc-pointer dev-names-p
+                                                         (* (foreign-slot-value dev-names-p
+                                                                                '(:struct devnames)
+                                                                                'device-offset)
+                                                            2))
+                                            :encoding :ucs-2le)
+                    output
+                    (foreign-string-to-lisp (inc-pointer dev-names-p
+                                                         (* (foreign-slot-value dev-names-p
+                                                                                '(:struct devnames)
+                                                                                'output-offset)
+                                                            2))
+                                            :encoding :ucs-2le)))
+            (global-unlock dev-names)
+            (global-free dev-names)
+            (global-free dev-mode))
+
+          (list :from-page (foreign-slot-value pd '(:struct pd) 'from-page)
+                :to-page (foreign-slot-value pd '(:struct pd) 'to-page)
+                :min-page (foreign-slot-value pd '(:struct pd) 'min-page)
+                :max-page (foreign-slot-value pd '(:struct pd) 'max-page)
+                :ncopies (foreign-slot-value pd '(:struct pd) 'ncopies)
+                :driver driver
+                :device device
+                :output output))))))
+
+                
+                      
+          
