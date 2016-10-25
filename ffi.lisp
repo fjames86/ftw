@@ -119,7 +119,7 @@
 	     (format stream "ERROR ~A: ~A" 
 		     (win-error-code condition)
 		     (format-message (win-error-code condition))))))
-	   
+
 (defcfun (%get-last-error "GetLastError" :convention :stdcall) :long)
 
 (defun get-last-error ()
@@ -142,15 +142,17 @@
   (x :uint32)
   (y :uint32))
 (defun foreign-point (p)
+  (declare (type foreign-pointer p))
   (list (foreign-slot-value p '(:struct point) 'x)
         (foreign-slot-value p '(:struct point) 'y)))
 (defun point-foreign (point p)
+  (declare (type foreign-pointer p))
   (setf (foreign-slot-value p '(:struct point) 'x)
         (first point)
         (foreign-slot-value p '(:struct point) 'y)
         (second point)))
 
-        
+
 (defctype wparam ;; :pointer)
     #+(or amd64 x64 x86-64):uint64
     #-(or amd64 x64 x86-64):uint32)
@@ -185,6 +187,8 @@
 
 ;; translate msg structs to/from foreign 
 (defun msg-foreign (msg p)
+  (declare (type foreign-pointer p)
+	   (type msg msg))
   (setf (foreign-slot-value p '(:struct msg) 'hwnd) (msg-hwnd msg)
 	(foreign-slot-value p '(:struct msg) 'message) (msg-message msg)
 	(foreign-slot-value p '(:struct msg) 'wparam) (msg-wparam msg)
@@ -196,6 +200,8 @@
   p)
 
 (defun foreign-msg (p msg)
+  (declare (type foreign-pointer p)
+	   (type msg msg))
   (setf (msg-hwnd msg) (foreign-slot-value p '(:struct msg) 'hwnd)
 	(msg-message msg) (foreign-slot-value p '(:struct msg) 'message)
 	(msg-wparam msg) (foreign-slot-value p '(:struct msg) 'wparam)
@@ -211,7 +217,10 @@
 (defun get-message (msg &optional hwnd filter-min filter-max)
   "Get a message from the message queue and store it in the input msg structure.
 HWND ::= window hwnd.
-MSG ::= uninitialized msg structure, will be filled in on successful return." 
+MSG ::= uninitialized msg structure, will be filled in on successful return."
+  (declare (type msg msg)
+	   (type (or foreign-pointer null) hwnd)
+	   (type (or integer null) filter-min filter-max))
   (with-foreign-object (m '(:struct msg))
     (let ((res (%get-message m
 			     (or hwnd (null-pointer))
@@ -228,11 +237,12 @@ MSG ::= uninitialized msg structure, will be filled in on successful return."
   (msg :pointer))
 
 (defun translate-message (msg)
-  "Translate keypress messages." 
+  "Translate keypress messages."
+  (declare (type msg msg))
   (with-foreign-object (m '(:struct msg))
     (msg-foreign msg m)
     (%translate-message m)))
-      
+
 (defctype lresult
     #+(or amd64 x64 x86-64):uint64
     #-(or amd64 x64 x86-64):uint32)
@@ -242,7 +252,8 @@ MSG ::= uninitialized msg structure, will be filled in on successful return."
   (msg :pointer))
 
 (defun dispatch-message (msg)
-  "Dispatch message." 
+  "Dispatch message."
+  (declare (type msg msg))
   (with-foreign-object (m '(:struct msg))
     (msg-foreign msg m)
     (%dispatch-message m)))
@@ -252,7 +263,8 @@ MSG ::= uninitialized msg structure, will be filled in on successful return."
   (exit-code :uint32))
 
 (defun post-quit-message (&optional exit-code)
-  "Post the quit message to the message queue." 
+  "Post the quit message to the message queue."
+  (declare (type (or null integer) exit-code))
   (%post-quit-message (or exit-code 0))
   0)
 
@@ -270,11 +282,20 @@ HWND ::= window hwnd to post message to. If not supplied the message is
 posted to the special broadcast hwnd (0xffff). 
 WPARAM, LPARAM ::= additional message data.
 "
+  (declare (type (or null foreign-pointer) hwnd)
+	   (type integer msg)
+	   (type (or null foreign-pointer integer) wparam lparam))
   (%post-message (or hwnd (make-pointer #xffff))
                  msg
-                 (or wparam 0)
-                 (or lparam 0)))
-    
+		 (cond
+		   ((null wparam) 0)
+		   ((pointerp wparam) (pointer-address wparam))
+		   (t wparam))
+		 (cond
+		   ((null lparam) 0)
+		   ((pointerp lparam) (pointer-address lparam))
+		   (t lparam))))
+
 (defcfun (%send-message "SendMessageW" :convention :stdcall)
     :uint32
   (hwnd :pointer)
@@ -288,7 +309,10 @@ This function does not return until the message has been processed.
 MSG ::= message type.
 HWND ::= window hwnd. If not supplied the broadcast hwnd (0xffff) is used.
 WPARAM, LPARAM ::= additional message data.
-" 
+"
+  (declare (type (or null foreign-pointer) hwnd)
+	   (type integer msg)
+	   (type (or null foreign-pointer integer) wparam lparam))
   (%send-message (or hwnd (make-pointer #xffff))
 		 msg
 		 (cond
@@ -309,7 +333,7 @@ WPARAM, LPARAM ::= additional message data.
   (flags :uint32)
   (timeout :uint32)
   (result :pointer))
-       
+
 (defun send-message-timeout (hwnd msg &key wparam lparam flags timeout)
   "Send message waiting up to timeout milliseconds. 
 HWND ::= window handle or HWND_BROADCAST if nil
@@ -318,12 +342,21 @@ WPARAM, LPARAM ::= message parameters
 FLAGS ::= list of flags
 FLAG ::= :abort-if-hung | :block | :normal | :no-timeout-of-not-hung | :error-on-exit 
 TIMEOUT ::= timeout in milliseconds. 
-" 
+"
+  (declare (type (or null foreign-pointer) hwnd)
+	   (type integer msg)
+	   (type (or null foreign-pointer integer) wparam lparam timeout))
   (with-foreign-object (result :uint32)
     (let ((ret (%send-message-timeout (or hwnd (make-pointer #xffff))
 				      msg
-				      (or wparam 0)
-				      (or lparam 0)
+				      (cond
+					((null wparam) 0)
+					((pointerp wparam) (pointer-address wparam))
+					(t wparam))
+				      (cond
+					((null lparam) 0)
+					((pointerp lparam) (pointer-address lparam))
+					(t lparam))
 				      (mergeflags flags 
 						  (:abort-if-hung 2)
 						  (:block 1)
@@ -341,7 +374,8 @@ TIMEOUT ::= timeout in milliseconds.
   (name :pointer))
 
 (defun register-window-message (name)
-  "Acquire an unused window message ID." 
+  "Acquire an unused window message ID."
+  (declare (type string name))
   (with-wide-string (s name)
     (let ((r (%register-window-message s)))
       (if (zerop r)
@@ -384,6 +418,7 @@ TIMEOUT ::= timeout in milliseconds.
   size style wndproc class-extra wnd-extra
   instance icon cursor brush menu-name class-name icon-small)
 (defun foreign-wndclassex (p)
+  (declare (type foreign-pointer p))
   (make-wndclassex
    :size (foreign-slot-value p '(:struct wndclassex) 'size)
    :style (foreign-slot-value p '(:struct wndclassex) 'style)
@@ -409,7 +444,8 @@ TIMEOUT ::= timeout in milliseconds.
   (module-name :pointer))
 
 (defun get-module-handle (&optional module-name)
-  "Get module handle also known as hinstance." 
+  "Get module handle also known as hinstance."
+  (declare (type (or null string) module-name))
   (with-wide-string (s (or module-name ""))
     (%get-module-handle (if module-name s (null-pointer)))))
 
@@ -419,7 +455,8 @@ TIMEOUT ::= timeout in milliseconds.
   (instance :pointer))
 
 (defun unregister-class (class-name)
-  "Unregister a window class." 
+  "Unregister a window class."
+  (declare (type string class-name))
   (with-wide-string (cls-name class-name)
     (%unregister-class cls-name (get-module-handle))))
 
@@ -431,13 +468,18 @@ STYLES ::= list of style flags or integer specifying the style bitmask.
 ICON, ICON-SMALL, CURSOR ::= handles for icons and cursor.
 BACKGROUN ::= background brush handle 
 "
+  (declare (type string class-name)
+	   (type foreign-pointer wndproc)
+	   (type (or null integer list) styles)
+	   (type (or null foreign-pointer) icon icon-small cursor background))
+  
   ;; unregister it first by force
   (unregister-class class-name)
   
   (with-foreign-object (wnd '(:struct wndclassex))
     (with-wide-string (cls-name class-name)
       (memset wnd (foreign-type-size '(:struct wndclassex)))
-            
+      
       (setf (foreign-slot-value wnd '(:struct wndclassex) 'size)
 	    (foreign-type-size '(:struct wndclassex))
 	    
@@ -474,10 +516,10 @@ BACKGROUN ::= background brush handle
 	    (foreign-slot-value wnd '(:struct wndclassex) 'brush)
 	    (or background (get-sys-color-brush :3d-face))
 
-        ;; we don't use default menu names because that requires resources which we don't support 
+	    ;; we don't use default menu names because that requires resources which we don't support 
 	    (foreign-slot-value wnd '(:struct wndclassex) 'menu-name)
 	    (null-pointer))
-	    
+      
 
       (setf (foreign-slot-value wnd '(:struct wndclassex) 'class-name)
 	    cls-name)
@@ -516,6 +558,7 @@ BACKGROUN ::= background brush handle
   param instance menu parent-hwnd 
   cy cx y x styles name class-name ex-styles)
 (defun foreign-createstruct (p)
+  (declare (type foreign-pointer p))
   (make-createstruct 
    :param (foreign-slot-value p '(:struct createstruct) 'param)
    :instance (foreign-slot-value p '(:struct createstruct) 'instance)
@@ -527,11 +570,11 @@ BACKGROUN ::= background brush handle
    :x (foreign-slot-value p '(:struct createstruct) 'x)
    :styles (foreign-slot-value p '(:struct createstruct) 'styles)
    :name (foreign-string-to-lisp
-	   (foreign-slot-value p '(:struct createstruct) 'name)
-	   :encoding :ucs-2le)
+	  (foreign-slot-value p '(:struct createstruct) 'name)
+	  :encoding :ucs-2le)
    :class-name (foreign-string-to-lisp 
-	   (foreign-slot-value p '(:struct createstruct) 'class-name)
-	   :encoding :ucs-2le)
+		(foreign-slot-value p '(:struct createstruct) 'class-name)
+		:encoding :ucs-2le)
    :ex-styles (foreign-slot-value p '(:struct createstruct) 'ex-styles)))
 
 (defun resolve-window-class-name (class-name)
@@ -660,7 +703,7 @@ RIGHT-JUSTIFY ::= if true, text is right justified.
 TOPMOST ::= if true, msgbox set to topmost window.
 SERVICE-NOTIFICATION ::= if true, msgbox is created on desktop by service.
 
-Return is keywork specifying button user clicked." 
+Return is keyword specifying button user clicked." 
   (with-wide-string (text-p (or text ""))
     (with-wide-string (caption-p (or caption ""))
       (let ((res (%message-box (or hwnd (null-pointer))
@@ -683,7 +726,7 @@ Return is keywork specifying button user clicked."
 					 (logior type
 						 (ecase icon
 						   (:asterisk #x00000040)
-                           (:information #x00000040)
+						   (:information #x00000040)
 						   (:warning #x00000030)
 						   (:question #x00000020)
 						   (:error #x00000010)))))
@@ -747,19 +790,19 @@ Return is keywork specifying button user clicked."
   "Set the window show state." 
   (%show-window hwnd
 		(ecase (or cmd :show-normal)
-		(:force-minimize 11)
-		(:hide 0)
-		(:maximize 3)
-		(:minimize 6)
-		(:restore 9)
-		(:show 5)
-		(:show-default 10)
-		(:show-maximized 3)
-		(:show-minimized 2)
-		(:show-minimized-noactive 7)
-		(:show-noactive 8)
-		(:show-noactivate 4)
-		(:show-normal 1))))
+		  (:force-minimize 11)
+		  (:hide 0)
+		  (:maximize 3)
+		  (:minimize 6)
+		  (:restore 9)
+		  (:show 5)
+		  (:show-default 10)
+		  (:show-maximized 3)
+		  (:show-minimized 2)
+		  (:show-minimized-noactive 7)
+		  (:show-noactive 8)
+		  (:show-noactivate 4)
+		  (:show-normal 1))))
 
 (defcfun (%update-window "UpdateWindow" :convention :stdcall)
     :boolean
@@ -889,7 +932,7 @@ Return is keywork specifying button user clicked."
     (t
      (with-wide-string (s name)
        (%load-icon (or handle (null-pointer))
-		  s)))))
+		   s)))))
 
 (defcfun (%load-cursor "LoadCursorW" :convention :stdcall)
     :pointer
@@ -934,7 +977,7 @@ Return is keywork specifying button user clicked."
 
 (defun load-image (string &key width height instance type flags)
   (unless flags (setf flags '(:load-from-file)))
-	  
+  
   (with-wide-string (s string)
     (let ((h (%load-image (or instance (null-pointer))
 			  s
@@ -984,7 +1027,7 @@ Return is keywork specifying button user clicked."
 		       (callback %enum-child-windows-cb)
 		       0)
   *enum-child-windows*)
-  
+
 (defcfun (%find-window "FindWindowExW" :convention :stdcall)
     :pointer
   (parent :pointer)
@@ -1086,7 +1129,7 @@ Return is keywork specifying button user clicked."
 			      (foreign-slot-value pwi '(:struct window-info) 'y-borders))
 	       :type (foreign-slot-value pwi '(:struct window-info) 'type)
 	       :version (foreign-slot-value pwi '(:struct window-info) 'version))))
-	       
+
 
 (defcfun (%move-window "MoveWindow" :convention :stdcall)
     :boolean
@@ -1124,7 +1167,7 @@ Return is keywork specifying button user clicked."
   (+ (1+ value)
      #+(or amd64 x64 x86-64)#xffffffffffffffff
      #-(or amd64 x64 x86-64)#xffffffff))
-  
+
 (defun set-window-pos (hwnd hwnd-insert-after x y cx cy &optional flags)
   (%set-window-pos hwnd
 		   (cond
@@ -1219,7 +1262,7 @@ Return is keywork specifying button user clicked."
       (setf (aref (paintstruct-reserved ps) i)
 	    (mem-aref rs :uint8 i))))
   ps)
-	
+
 (defun begin-paint (hwnd)
   (with-foreign-object (p '(:struct paintstruct))
     (let ((res (%begin-paint hwnd p))
@@ -1227,7 +1270,7 @@ Return is keywork specifying button user clicked."
 				  (make-array 32 :element-type '(unsigned-byte 8)))))
       (foreign-paintstruct p info)
       (values res info))))
-    
+
 
 (defcfun (%end-paint "EndPaint" :convention :stdcall)
     :boolean
@@ -1308,7 +1351,7 @@ Return is keywork specifying button user clicked."
 			    (:flat #x4000)
 			    (:mono #x8000)			    
 			    (:rect #x0f)))))
-    
+
 (defcfun (%redraw-window "RedrawWindow" :convention :stdcall)
     :boolean
   (hwnd :pointer)
@@ -1532,7 +1575,7 @@ Return is keywork specifying button user clicked."
      (:tablet-pc 86)
      (:xvirtualscreen 76)
      (:yvirtualscreen 77))))
-		  
+
 
 
 (defcfun (%register-hot-key "RegisterHotKey" :convention :stdcall)
@@ -1594,7 +1637,7 @@ Return is keywork specifying button user clicked."
                            (:inside-frame 6))
                (or width 0)
                color))
-		 
+
 
 
 (defvar *virtual-keys*
@@ -1797,7 +1840,7 @@ Return is keywork specifying button user clicked."
 
 (defun set-menu (hwnd menu)
   (%set-menu hwnd menu))
-			   
+
 (defcfun (%create-popup-menu "CreatePopupMenu" :convention :stdcall)
     :pointer)
 
@@ -1820,7 +1863,7 @@ Return is keywork specifying button user clicked."
 
 (defun destroy-menu (menu)
   (%destroy-menu menu))
-  
+
 (defcfun (%track-popup-menu-ex "TrackPopupMenuEx" :convention :stdcall)
     :boolean
   (menu :pointer)
@@ -1901,7 +1944,7 @@ Return is keywork specifying button user clicked."
 			  last-id
 			  check-id
 			  (if by-position #x400 0)))
-			      
+
 
 (defcfun (%get-menu-state "GetMenuState" :convention :stdcall)
     :uint32
@@ -1969,7 +2012,7 @@ Return is keywork specifying button user clicked."
 			 (:comboboxex 512)
 			 (:win95 255)))
        (%init-common-controls-ex c)))))
-			  
+
 (defcfun (%choose-color "ChooseColorW" :convention :stdcall) :boolean
   (p :pointer))
 
@@ -2087,7 +2130,7 @@ of this function so that users preferences are presented back to them.
 
 (defun setup-openfilename (ofn custom-filter-buffer file-name fstr
 			   &key hwnd instance filters custom-filter file
-				 filter-index initial-dir title flags)
+			     filter-index initial-dir title flags)
   (when filters
     (lisp-string-to-foreign (with-output-to-string (s)
 			      (dolist (filter filters)
@@ -2120,7 +2163,7 @@ of this function so that users preferences are presented back to them.
       (memset file-name 1024))
   (memset ofn (foreign-type-size '(:struct openfilename)))
   (memset custom-filter-buffer 1024)
-      
+  
   (setf (foreign-slot-value ofn '(:struct openfilename) 'size)
 	(foreign-type-size '(:struct openfilename))
 	
@@ -2212,7 +2255,7 @@ of this function so that users preferences are presented back to them.
 		    (foreign-string-to-lisp custom-filter-buffer
 					    :max-chars 512
 					    :encoding :ucs-2le))))))))
-		
+
 (defun get-save-file-name (&key hwnd instance filters custom-filter file 
 			     filter-index initial-dir title flags)
   (with-foreign-objects ((ofn '(:struct openfilename))
@@ -2246,9 +2289,9 @@ of this function so that users preferences are presented back to them.
 		    (foreign-string-to-lisp custom-filter-buffer
 					    :max-chars 512
 					    :encoding :ucs-2le))))))))
-	      
-	    
-			      
+
+
+
 (defcfun (%set-bk-color "SetBkColor" :convention :stdcall) :uint32
   (hdc :pointer)
   (color :uint32))
@@ -2693,7 +2736,7 @@ of this function so that users preferences are presented back to them.
   (when lparam
     (setf (foreign-slot-value p '(:struct tcitem) 'lparam) lparam))
   p)
-   
+
 (defcfun (%create-font "CreateFontW" :convention :stdcall)
     :pointer
   (height :int32)
@@ -2821,8 +2864,8 @@ of this function so that users preferences are presented back to them.
     (setf *enum-font-families* nil)
     (%enum-font-families hdc lf (callback enum-font-cb) 0 0)
     *enum-font-families*))
-    
-  
+
+
 (defcfun (%set-bk-mode "SetBkMode" :convention :stdcall) :int32
   (hdc :pointer)
   (mode :int32))
@@ -2848,7 +2891,7 @@ of this function so that users preferences are presented back to them.
   (list :style (foreign-slot-value p '(:struct logbrush) 'style)
         :color (foreign-slot-value p '(:struct logbrush) 'color)
         :hatch (foreign-slot-value p '(:struct logbrush) 'hatch)))
-        
+
 (defun ext-create-pen (style &key width styles brush-style brush-color brush-hatch)
   (with-foreign-object (lb '(:struct logbrush))
     (memset lb (foreign-type-size '(:struct logbrush)))
@@ -2861,7 +2904,7 @@ of this function so that users preferences are presented back to them.
 
     (when brush-hatch
       (setf (foreign-slot-value lb '(:struct logbrush) 'hatch)
-           (make-pointer brush-hatch)))
+	    (make-pointer brush-hatch)))
 
     (with-foreign-object (stlist :uint32 16)
       (do ((i 0 (1+ i))
@@ -2878,7 +2921,7 @@ of this function so that users preferences are presented back to them.
             (get-last-error)
             res)))))
 
-                        
+
 (defcfun (%polygon "Polygon" :convention :stdcall) :boolean
   (hdc :pointer)
   (points :pointer)
@@ -2989,7 +3032,7 @@ of this function so that users preferences are presented back to them.
   (x-source :int32)
   (y-source :int32)
   (rop :uint32))
-  
+
 (defun bit-blt (hdc-dest x-dest y-dest hdc-source x-source y-source
                 &key width height raster-op)
   (let ((res (%bit-blt hdc-dest x-dest y-dest
@@ -3021,8 +3064,8 @@ of this function so that users preferences are presented back to them.
 	     (or bitmap (null-pointer))
 	     (or xmask 0)
 	     (or ymask 0)
-         (raster-op raster-op)))
- 
+	     (raster-op raster-op)))
+
 (defcfun (%stretch-blt "StretchBlt" :convention :stdcall)
     :boolean
   (hdc-dest :pointer)
@@ -3043,7 +3086,7 @@ of this function so that users preferences are presented back to them.
 		(or width-dest 0) (or height-dest 0)
 		hdc-source x-source y-source
 		(or width-source 0) (or height-source 0)
-        (raster-op raster-op)))
+		(raster-op raster-op)))
 
 (defcfun (%plg-blt "PlgBlt" :convention :stdcall)
     :boolean
@@ -3137,7 +3180,7 @@ of this function so that users preferences are presented back to them.
     (if (null-pointer-p ret)
         (get-last-error)
         ret)))
-                 
+
 (defcfun (%get-object "GetObjectW" :convention :stdcall)
     :int32
   (obj :pointer)
@@ -3163,7 +3206,7 @@ of this function so that users preferences are presented back to them.
                :planes (foreign-slot-value p '(:struct bitmap) 'planes)
                :bits-per-pixel (foreign-slot-value p '(:struct bitmap) 'bits-per-pixel)
                :bits (foreign-slot-value p '(:struct bitmap) 'bits)))
-               
+
 (defcstruct bitmap-info-header
   (size :uint32)
   (width :int32)
@@ -3206,7 +3249,7 @@ of this function so that users preferences are presented back to them.
                                   (elist nil))
                                  ((= i num-entries) elist)
                                (push (mem-aref ptr :uint32 i) elist)))))
-                  
+
 (defcstruct logpen
   (style :uint32)
   (width (:struct point))
@@ -3215,7 +3258,7 @@ of this function so that users preferences are presented back to them.
   (list :style (foreign-slot-value p '(:struct logpen) 'style)
         :width (foreign-point (foreign-slot-pointer p '(:struct logpen) 'width))
         :color (foreign-slot-value p '(:struct logpen) 'color)))
-        
+
 
 (defun get-object (obj type)
   (let ((count (%get-object obj 0 (null-pointer))))
@@ -3287,7 +3330,7 @@ of this function so that users preferences are presented back to them.
    :message-font (foreign-logfont (foreign-slot-pointer p '(:struct nonclientmetrics) 'message-font))
    :padded-border-width (foreign-slot-value p '(:struct nonclientmetrics) 'padded-border-width)))
 
-   
+
 (defun system-parameters-info (action &optional param winini)
   (declare (ignore param))
   (switch action
@@ -3467,7 +3510,7 @@ of this function so that users preferences are presented back to them.
 ;; we don't use the menu 
 ;; when ds_setfont style is specified, followed by font size (uint16) and font name (variable length string)
 
-  
+
 (defun dlgtemplate-foreign (p controls &key styles ex-styles x y cx cy class-name title point-size font)
 
   (let ((offset 0))
@@ -3517,7 +3560,7 @@ of this function so that users preferences are presented back to them.
       (incf offset 2)
       (let ((of (encode-wide-string-to-foreign (or font "Tahoma") p offset)))
 	(setf offset of)))
-      
+    
     ;; align to dword 
     (unless (zerop (mod offset 4))
       (incf offset (- 4 (mod offset 4))))
@@ -3744,7 +3787,7 @@ of this function so that users preferences are presented back to them.
 			  (or wparam 0)
 			  (or lparam 0)))
 
-  
+
 (defcstruct accel
   (virt :uint8)
   (key :uint16)
@@ -3762,27 +3805,27 @@ of this function so that users preferences are presented back to them.
 	((null e))
       (destructuring-bind (key cmd &rest virt) (car e)
 	(let ((p (mem-aptr a '(:struct accel) i)))
-	(setf (foreign-slot-value p '(:struct accel) 'virt)
-	      (mergeflags (if (listp virt) virt (list virt))
-	        (:alt #x10)
-		(:control #x08)
-		(:no-invert #x02)
-		(:shift #x04)
-		(:virtual-key #x01))
-	      (foreign-slot-value p '(:struct accel) 'key)
-	      (cond
-		((keywordp key) (virtual-key-code key))
-		((characterp key) (char-code key))
-		((integerp key) key)
-		(t (error "Key must be virtual key identifier, character or integer")))		
-	      (foreign-slot-value p '(:struct accel) 'cmd)
-	      cmd))))
+	  (setf (foreign-slot-value p '(:struct accel) 'virt)
+		(mergeflags (if (listp virt) virt (list virt))
+			    (:alt #x10)
+			    (:control #x08)
+			    (:no-invert #x02)
+			    (:shift #x04)
+			    (:virtual-key #x01))
+		(foreign-slot-value p '(:struct accel) 'key)
+		(cond
+		  ((keywordp key) (virtual-key-code key))
+		  ((characterp key) (char-code key))
+		  ((integerp key) key)
+		  (t (error "Key must be virtual key identifier, character or integer")))		
+		(foreign-slot-value p '(:struct accel) 'cmd)
+		cmd))))
     (let ((ret (%create-accelerator-table a (length entries))))
       (if (null-pointer-p ret)
 	  (get-last-error)
 	  ret))))
 
-  
+
 (defcfun (%destroy-accelerator-table "DestroyAcceleratorTable" :convention :stdcall)
     :boolean
   (accel :pointer))
@@ -3839,7 +3882,7 @@ of this function so that users preferences are presented back to them.
 	 res)
 	(t
 	 (get-last-error))))))
-				  
+
 (defcfun (%get-menu "GetMenu" :convention :stdcall)
     :pointer
   (hwnd :pointer))
@@ -4014,7 +4057,7 @@ of this function so that users preferences are presented back to them.
                              ((integerp index) index)
                              (t (error "Index must be a keyword or integer")))))
 
-                          
+
 (defcfun (%set-window-long-pointer "SetWindowLongPtrW" :convention :stdcall)
     :pointer
   (hwnd :pointer)
@@ -4059,7 +4102,7 @@ of this function so that users preferences are presented back to them.
                                  (:wndproc -4)))
                               ((integerp index) index)
                               (t (error "Index must be keyword or integer")))))
-                           
+
 (defcfun (%set-active-window "SetActiveWindow" :convention :stdcall)
     :pointer
   (hwnd :pointer))
@@ -4103,20 +4146,20 @@ of this function so that users preferences are presented back to them.
    (mergeflags (if (keywordp flags)
                    (list flags)
                    flags)
-     (:all +qs-allevents+)
-     (:all-input +qs-allinput+)
-     (:all-post-message +qs-allpostmessage+)
-     (:hotkey +qs-hotkey+)
-     (:input +qs-input+)
-     (:key +qs-key+)
-     (:mouse +qs-mouse+)
-     (:mouse-button +qs-mousebutton+)
-     (:mouse-move +qs-mousemove+)
-     (:paint +qs-paint+)
-     (:postmessage +qs-postmessage+)
-     (:rawinput +qs-rawinput+)
-     (:sendmessage +qs-sendmessage+)
-     (:timer +qs-timer+))))
+	       (:all +qs-allevents+)
+	       (:all-input +qs-allinput+)
+	       (:all-post-message +qs-allpostmessage+)
+	       (:hotkey +qs-hotkey+)
+	       (:input +qs-input+)
+	       (:key +qs-key+)
+	       (:mouse +qs-mouse+)
+	       (:mouse-button +qs-mousebutton+)
+	       (:mouse-move +qs-mousemove+)
+	       (:paint +qs-paint+)
+	       (:postmessage +qs-postmessage+)
+	       (:rawinput +qs-rawinput+)
+	       (:sendmessage +qs-sendmessage+)
+	       (:timer +qs-timer+))))
 
 (defcfun (%msg-wait-for-multiple-objects "MsgWaitForMultipleObjects" :convention :stdcall)
     :uint32
@@ -4204,7 +4247,7 @@ of this function so that users preferences are presented back to them.
 	  (get-last-error)
 	  (values res
 		  (when recipients (mem-aref r :uint32)))))))
-    
+
 (defcfun (%reply-message "ReplyMessage" :convention :stdcall)
     :boolean
   (lresult lresult))
@@ -4421,30 +4464,6 @@ of this function so that users preferences are presented back to them.
 (defun get-text-color (hdc)
   (%get-text-color hdc))
 
-;; (defcstruct findreplace
-;;   (size :uint32)
-;;   (owner :pointer)
-;;   (instance :pointer)
-;;   (flags :uint32)
-;;   (find-what :pointer)
-;;   (replace-with :pointer)
-;;   (fw-count :uint16)
-;;   (rw-count :uint16)
-;;   (data lparam)
-;;   (hook :pointer)
-;;   (template-name :pointer))
-
-;; (defcfun (%replace-text "ReplaceTextW" :convention :stdcall)
-;;     :pointer
-;;   (lp :pointer))
-
-;; (defun replace-text (&key flags find-what replace-with instance hwnd)
-;;   ;; we need to allocate the buffers for the find-what and replace-with strings
-;;   ;; this is because replace-text creates a modeless dialog so the buffers
-;;   ;; need to live until the dialog closes.
-;;   ;; This makes it kind of hard for us to do.
-;;  )
-
 ;; (defcfun (%create-di-bitmap "CreateDIBitmap" :convention :stdcall)
 ;;     :pointer
 ;;   (hdc :pointer)
@@ -4453,7 +4472,7 @@ of this function so that users preferences are presented back to them.
 ;;   (pinit :pointer)
 ;;   (info :pointer)
 ;;   (usage :uint32))
-    
+
 (defcfun (%create-font-indirect "CreateFontIndirectW" :convention :stdcall)
     :pointer
   (lp :pointer))
@@ -4466,9 +4485,6 @@ of this function so that users preferences are presented back to them.
       (if (null-pointer-p f)
 	  (error "Failed to create font")
 	  f))))
-
-
-
 
 (defcfun (%create-dib-section "CreateDIBSection" :convention :stdcall)
     :pointer
@@ -4931,9 +4947,9 @@ that the user chose. In addition the driver, printer and output names are return
                 :device device
                 :output output))))))
 
-                
-                      
-          
+
+
+
 
 
 (defcstruct findreplace
@@ -5106,7 +5122,7 @@ that the user chose. In addition the driver, printer and output names are return
                                          lp)))
             (unless (= res 0)
               res)))))))
-                
+
 (defcfun (%start-page-printer "StartPagePrinter" :convention :stdcall)
     :boolean
   (hprinter :pointer))
