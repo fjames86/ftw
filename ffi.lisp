@@ -5112,9 +5112,7 @@ that the user chose. In addition the driver, printer and output names are return
   (hprinter :pointer))
 
 (defun start-page-printer (hprinter)
-  (let ((res (%start-page-printer hprinter)))
-    (unless (zerop res)
-      res)))
+  (%start-page-printer hprinter))
 
 (defcfun (%write-printer "WritePrinter" :convention :stdcall)
     :boolean
