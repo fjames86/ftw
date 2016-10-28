@@ -76,6 +76,7 @@
 				     (loop :for j :below y :collect
 					(let ((left (- (* x y) (+ (* i y) j))))
 					  (cond
+					    ((or (zerop left) (zerop m)) nil)
 					    ((<= left m)
 					     (decf m)
 					     (list :mine))
@@ -148,6 +149,7 @@
      (set-timer :hwnd hwnd :elapse 1000 :replace-timer 4))
     ((const +wm-paint+)
      (with-paint (hwnd hdc)
+       (set-bk-mode hdc :transparent)
        ;; draw top region containing seconds and flag counter
        (destructuring-bind (&key (right 0) (bottom 0) &allow-other-keys) (get-client-rect hwnd)
 	 (draw-edge hdc (make-rect :left 10 :top 10 :right (- right 10) :bottom 50)
@@ -226,15 +228,15 @@
 	 (when (= (loword wparam) 2)
 	   (when (and (>= i 0) (< i (minesweeper-x *ms*))
 		      (>= j 0) (< j (minesweeper-y *ms*))
-		      (not (clicked-p *ms* i j))
-		      (> (minesweeper-flags *ms*) 0))
+		      (not (clicked-p *ms* i j)))
 	     (cond
 	       ((flag-p *ms* i j)
 		(set-flag *ms* i j nil)
 		(incf (minesweeper-flags *ms*)))
 	       (t
-		(set-flag *ms* i j t)
-		(decf (minesweeper-flags *ms*)))))))
+		(when (> (minesweeper-flags *ms*) 0)
+		  (set-flag *ms* i j t)
+		  (decf (minesweeper-flags *ms*))))))))
        (invalidate-rect hwnd nil t)))
     ((const +wm-command+)
      (switch (loword wparam)

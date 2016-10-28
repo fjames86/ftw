@@ -85,6 +85,11 @@
 
 (use-foreign-library spoolss)
 
+(define-foreign-library winmm 
+  (t (:default "Winmm")))
+
+(use-foreign-library winmm)
+
 
 ;; -------------------- for errors ----------------------------
 
@@ -1211,6 +1216,16 @@ Return is keyword specifying button user clicked."
     (%invalidate-rect (or hwnd (null-pointer))
 		      (if rect r (null-pointer))
 		      erase)))
+
+(defcfun (%invalidate-region "InvalidateRgn" :convention :stdcall)
+    :boolean
+  (hwnd :pointer)
+  (hregion :pointer)
+  (erase :boolean))
+
+(defun invalidate-region (hwnd &optional region erase-p)
+  (%invalidate-region hwnd (or region (null-pointer)) erase-p))
+
 
 (defcfun (%begin-paint "BeginPaint" :convention :stdcall)
     :pointer
@@ -2842,6 +2857,7 @@ of this function so that users preferences are presented back to them.
 			  64 
 			  :encoding :ucs-2le)
   p)
+
 
 (defcfun (%enum-font-families "EnumFontFamiliesExW" :convention :stdcall)
     :int32
@@ -5168,4 +5184,234 @@ that the user chose. In addition the driver, printer and output names are return
 (defun close-printer (hprinter)
   (%close-printer hprinter))
 
+(defcfun (%create-caret "CreateCaret" :convention :stdcall)
+    :boolean
+  (hwnd :pointer)
+  (bitmap :pointer)
+  (width :int32)
+  (height :int32))
 
+(defun create-caret (hwnd &key width height bitmap)
+  (%create-caret hwnd 
+		 (cond
+		   ((null bitmap) (null-pointer))
+		   ((or (eq bitmap :grey)
+			(eq bitmap :gray))
+		    (make-pointer 1))
+		   ((pointerp bitmap) bitmap)
+		   (t (error "Bitmap must be nil, :grey or bitmap handle")))
+		 (or width 0) 
+		 (or height 0)))
+
+(defcfun (%show-caret "ShowCaret" :convention :stdcall)
+    :boolean
+  (hwnd :pointer))
+
+(defun show-caret (hwnd)
+  (%show-caret hwnd))
+
+(defcfun (%hide-caret "HideCaret" :convention :stdcall)
+    :boolean
+  (hwnd :pointer))
+
+(defun hide-caret (hwnd)
+  (%hide-caret hwnd))
+
+(defcfun (%destroy-caret "DestroyCaret") :boolean)
+
+(defun destroy-caret ()
+  (%destroy-caret))
+
+(defcfun (%get-caret-pos "GetCaretPos" :convention :stdcall)
+    :boolean
+  (lp :pointer))
+
+(defun get-caret-pos ()
+  (with-foreign-object (p '(:struct point))
+    (%get-caret-pos p)
+    (foreign-point p)))
+
+(defcfun (%set-caret-pos "SetCaretPos" :convention :stdcall)
+    :boolean
+  (x :int32)
+  (y :int32))
+
+(defun set-caret-pos (x y)
+  (%set-caret-pos x y))
+
+(defcfun (%get-text-extent-point32 "GetTextExtentPoint32W" :convention :stdcall)
+    :boolean
+  (hdc :pointer)
+  (string :pointer)
+  (c :int32)
+  (size :pointer))
+
+(defun get-text-extent-point (hdc string)
+  (with-wide-string ((s slen) string)
+    (with-foreign-object (p '(:struct point))
+      (%get-text-extent-point32 hdc 
+				s 
+				(truncate (- slen 2) 2)
+				p)
+      (foreign-point p))))
+
+(defcstruct textmetric 
+  (height :int32)
+  (ascent :int32)
+  (descent :int32)
+  (internal-leading :int32)
+  (external-leading :int32)
+  (avcharwidth :int32)
+  (maxcharwidth :int32)
+  (weight :int32)
+  (overhang :int32)
+  (digitized-aspectx :int32)
+  (digitized-aspecty :int32)
+  (first-char :uint16)
+  (last-char :uint16)
+  (default-char :uint16)
+  (break-char :uint16)
+  (italic :uint8)
+  (underlined :uint8)
+  (struckout :uint8)
+  (pitch-and-family :uint8)
+  (charset :uint8))
+
+(defun foreign-textmetric (p)
+  (list :height (foreign-slot-value p '(:struct textmetric) 'height)
+	:ascent (foreign-slot-value p '(:struct textmetric) 'ascent)
+	:descent (foreign-slot-value p '(:struct textmetric) 'descent)
+	:internal-leading (foreign-slot-value p '(:struct textmetric) 'internal-leading)
+	:external-leading (foreign-slot-value p '(:struct textmetric) 'external-leading)
+	:avcharwidth (foreign-slot-value p '(:struct textmetric) 'avcharwidth)
+	:maxcharwidth (foreign-slot-value p '(:struct textmetric) 'maxcharwidth)
+	:weight (foreign-slot-value p '(:struct textmetric) 'weight)
+	:overhang (foreign-slot-value p '(:struct textmetric) 'overhang)
+	:digitized-aspectx (foreign-slot-value p '(:struct textmetric) 'digitized-aspectx)
+	:digitized-aspecty (foreign-slot-value p '(:struct textmetric) 'digitized-aspecty)
+	:first-char (foreign-slot-value p '(:struct textmetric) 'first-char)
+	:last-char (foreign-slot-value p '(:struct textmetric) 'last-char)
+	:default-char (foreign-slot-value p '(:struct textmetric) 'default-char)
+	:break-char (foreign-slot-value p '(:struct textmetric) 'break-char)
+	:italic (foreign-slot-value p '(:struct textmetric) 'italic)
+	:underlined (foreign-slot-value p '(:struct textmetric) 'underlined)
+	:struckout (foreign-slot-value p '(:struct textmetric) 'struckout)
+	:pitch-and-family (foreign-slot-value p '(:struct textmetric) 'pitch-and-family)
+	:charset (foreign-slot-value p '(:struct textmetric) 'charset)))
+
+(defcfun (%get-text-metrics "GetTextMetricsW" :convention :stdcall)
+    :boolean
+  (hdc :pointer)
+  (lp :pointer))
+
+(defun get-text-metrics (hdc)
+  (with-foreign-object (lp '(:struct textmetric))
+    (%get-text-metrics hdc lp)
+    (foreign-textmetric lp)))
+
+;; (defcfun (%enum-fonts "EnumFontsW" :convention :stdcall)
+;;     :int32
+;;   (hdc :pointer)
+;;   (name :pointer)
+;;   (proc :pointer)
+;;   (lparam lparam))
+
+;; (defvar *enum-fonts* nil)
+
+;; (defcallback enum-fonts-cb :int32
+;;     ((logfont :pointer)
+;;      (textmetric :pointer)
+;;      (type :uint32)
+;;      (lparam lparam))
+;;   (declare (ignore textmetric type lparam))
+;;   (push (foreign-logfont logfont) *enum-fonts*)
+;;   1)
+
+;; (defun enum-fonts (hdc &optional face-name)
+;;   (setf *enum-fonts* nil)
+;;   (with-wide-string (s (or face-name ""))
+;;     (%enum-fonts hdc 
+;; 		 (if face-name s (null-pointer))
+;; 		 (callback enum-fonts-cb)
+;; 		 0))
+;;   *enum-fonts*)
+
+(defcfun (%get-keyboard-layout-name "GetKeyboardLayoutNameW" :convention :stdcall)
+    :boolean
+  (lp :pointer))
+
+(defun get-keyboard-layout-name ()
+  "Get keyboard layout language and device ID.
+Returns (values language-id device-id) where both are integers.
+"
+  (with-foreign-object (lp :uint16 256)
+    (%get-keyboard-layout-name lp)
+    (let ((str (foreign-string-to-lisp lp :encoding :ucs-2le)))
+      (values (parse-integer (subseq str 4 8) :radix 16)
+	      (parse-integer (subseq str 0 4) :radix 16)))))
+
+(defcfun (%load-keyboard-layout "LoadKeyboardLayoutW" :convention :stdcall)
+    :pointer
+  (id :pointer)
+  (flags :uint32))
+
+(defun load-keyboard-layout (language-id &optional device-id flags)
+  "Set the keyboard layout.
+LANGUAGE-ID and DEVICE-ID should be integers. See MSDN for for information
+on what those integers can be.
+" 
+  (with-wide-string (s (format nil "~4,'0X~4,'0X" (or device-id 0) language-id))
+    (%load-keyboard-layout s 
+			   (mergeflags flags 
+				       (:activate #x01)
+				       (:no-tell-shell #x80)
+				       (:reorder #x8)
+				       (:replace-lang #x10)
+				       (:substitute-ok #x2)
+				       (:set-for-process #x100)))))
+
+(defcfun (%is-window-enabled "IsWindowEnabled" :convention :stdcall)
+    :boolean
+  (hwnd :pointer))
+
+(defun is-window-enabled (hwnd)
+  (%is-window-enabled hwnd))
+
+(defcfun (%play-sound "PlaySoundW" :convention :stdcall)
+    :boolean
+  (name :pointer)
+  (hmod :pointer)
+  (flags :uint32))
+
+;; TODO: add support for playing in-memory sounds 
+;; You do this by setting the :memory flag and providing 
+;; a vector of the octets. 
+(defun play-sound (name &optional flags)
+  (with-wide-string (n (cond
+			 ((stringp name) name)
+			 ((keywordp name)
+			  (ecase name
+			    (:asterisk "SystemAsterisk")
+			    (:default "SystemDefault")
+			    (:exclamation "SystemExclamation")
+			    (:exit "SystemExit")
+			    (:hand "SystemHand")
+			    (:question "SystemQuestion")
+			    (:start "SystemStart")
+			    (:welcome "SystemWelcome")))
+			 (t "")))
+    (%play-sound (if name n (null-pointer))
+		 (null-pointer)
+		 (mergeflags flags
+			     (:application #x80)
+			     (:alias #x00010000)
+			     (:alias-id #x00110000)
+			     (:async #x1)
+			     (:filename #x00020000)
+			     (:loop #x8)
+			     #+nil(:memory #x4)
+			     (:no-default #x2)
+			     (:no-stop #x10)
+			     (:sentry #x00080000)
+			     (:sync #x0)
+			     (:system #x00200000)))))

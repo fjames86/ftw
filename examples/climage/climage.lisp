@@ -196,7 +196,7 @@ Copyright (c) Frank James 2016.
                     :icon :error)
        nil))))
 
-(defun add-menu-bar (hwnd menus)
+(defun add-menu-bar% (hwnd menus)
   (labels ((process-menu (parent menu)
              (destructuring-bind (type sym flags &key name id children) menu
                (ecase type
@@ -233,7 +233,7 @@ Copyright (c) Frank James 2016.
 
   (setf *windows* nil)
   
-  (add-menu-bar hwnd `((:menu file-menu (:popup) :name "&File"
+  (add-menu-bar% hwnd `((:menu file-menu (:popup) :name "&File"
                               :children 
                               ((:item find-menu-item (:string) 
                                       :name ,(format nil "&Find~ACtrl+F" #\tab)

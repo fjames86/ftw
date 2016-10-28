@@ -91,3 +91,55 @@
   (page-setup-dialog))
 
 
+;; ------------- Example ------------
+
+(defvar *show-find-dialog-text* nil)
+
+(defwndproc find-dialog-dlgproc (hwnd msg wparam lparam)
+  (declare (ignore lparam))
+  (switch msg
+    ((const +wm-initdialog+)
+     1)
+    ((const +wm-command+)
+     (switch (loword wparam)
+       (1 ;; text box
+        nil)
+       (2 ;; ok
+        (setf *show-find-dialog-text* (get-window-text (get-dialog-item hwnd 1)))
+        (end-dialog hwnd))
+       (3 ;; cancel
+        (setf *show-find-dialog-text* nil)
+        (end-dialog hwnd)))
+     1)
+    (t 
+     0)))
+
+(defun show-find-dialog (&optional hwnd)
+  (setf *show-find-dialog-text* nil)
+  (dialog-box (callback find-dialog-dlgproc)
+              `((:class-name :static
+                             :x 10 :y 10 :cx 40 :cy 10
+                             :styles ,(logior-consts +ws-child+ +ws-visible+ +ss-left+)
+                             :title "Find what:")
+                (:class-name :edit
+                             :id 1
+                             :x 55 :y 10 :cx 105 :cy 8
+                             :styles ,(logior-consts +ws-child+ +ws-visible+ +ws-tabstop+))
+                (:class-name :button
+                             :id 2
+                             :title "OK"
+                             :x 55 :y 25 :cx 50 :cy 14
+                             :styles ,(logior-consts +ws-child+ +ws-visible+ +bs-defpushbutton+ +ws-tabstop+))
+                (:class-name :button
+                             :id 3
+                             :title "Cancel"
+                             :x 110 :y 25 :cx 50 :cy 14
+                             :styles ,(logior-consts +ws-child+ +ws-visible+ +ws-tabstop+)))
+              :hwnd (or hwnd (null-pointer))
+              :styles (logior-consts +ws-popup+ +ws-border+ +ws-sysmenu+
+                                     +ds-modalframe+ +ws-caption+
+                                     +ws-visible+ +ds-setfont+)
+              :title "Find"
+              :point-size 8 :font "Microsoft Sans Serif" 
+              :x 50 :y 50 :cx 170 :cy 45)
+  *show-find-dialog-text*)

@@ -257,6 +257,17 @@ NAME ::= string naming the item
 ID ::= integer identifier 
 CHILDREN ::= MENU* menu children 
 " 
+;; Example 
+;; (add-menu-bar `((:menu (:popup) :name "&File"
+;; 		 :children 
+;; 		 ((:item (:string) 
+;; 			 :name ,(format nil "&Find~ACtrl+F" #\tab)
+;; 			 :id 1)
+;; 		  (:item (:separator))
+;; 		  (:item (:string) 
+;; 			 :name ,(format nil "&Quit~ACtrl+Q" #\tab)
+;; 			 :id 2)))))
+
   (labels ((process-menu (parent menu)
              (destructuring-bind (type flags &key name id children) menu
                (ecase type
@@ -278,3 +289,19 @@ CHILDREN ::= MENU* menu children
         (process-menu bar menu))
 
       (set-menu hwnd bar))))
+
+
+(defun set-window-to-center (hwnd)
+  (let ((rect (get-window-rect hwnd)))
+    (destructuring-bind (&key (left 0) (right 0) (top 0) (bottom 0)) rect 
+      (set-window-pos hwnd
+                      :topmost 
+                      (truncate (- (get-system-metrics :cx-screen)
+                                   (- right left))
+                                2)
+                      (truncate (- (get-system-metrics :cy-screen)
+                                   (- bottom top))
+                                2)
+                      0
+                      0
+                      '(:no-size)))))
