@@ -460,7 +460,9 @@ Repeat recursively."
       '((:keyn 1 :control :virtual-key)
         (:keyq 2 :control :virtual-key)))
 
-     (set-timer :hwnd hwnd :elapse 1000 :replace-timer 4))
+     (set-timer :hwnd hwnd :elapse 1000 :replace-timer 4)
+
+     (send-message hwnd (const +wm-seticon+) :wparam 1 :lparam *mine-icon*))
     ((const +wm-paint+)
      (with-paint (hwnd hdc)
        (set-bk-mode hdc :transparent)
