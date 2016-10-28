@@ -60,6 +60,7 @@
 (defvar *starting-mines* 10)
 (defvar *starting-x* 10)
 (defvar *starting-y* 10)
+(defvar *ms* nil)
 
 (defun random-game (&key x y mines)
   (unless x (setf x *starting-x*))
@@ -92,21 +93,334 @@
 (defun clicked-p (ms x y)
   (integerp (car (cell ms x y))))
 
+(defun unclicked-neighbours (ms x y)
+  (let ((neighbours nil))
+    (do ((i (1- x) (1+ i)))
+	((= i (+ x 2)))
+      (do ((j (1- y) (1+ j)))
+	  ((= j (+ y 2)))
+	(when (and (>= i 0) (< i (minesweeper-x ms))
+		   (>= j 0) (< j (minesweeper-y ms))
+		   (not (and (= i x) (= j y)))
+		   (not (clicked-p ms i j)))
+	  (push (list i j) neighbours))))
+    neighbours))
+	 
+      
+(defun click-provable-cells (ms x y)
+  "If this location has a mine count of 0 then
+look at all the unclicked cells around this location and click those too.
+Repeat recursively." 
+  (when (= (mines ms x y) 0)
+    (dolist (n (unclicked-neighbours ms x y))
+      (click-cell ms (first n) (second n)))))
+
 (defun click-cell (ms x y)
   (cond
     ((mine-p ms x y)
      :mine)
     (t 
      (setf (cell ms x y) (list (mines ms x y)))
+     (click-provable-cells ms x y)
      (cell ms x y))))
 
+(defun resize-window (hwnd)
+  "Set the window to the size required for the game" 
+  (let ((w (minesweeper-x *ms*))
+	(h (minesweeper-y *ms*)))	  
+    (set-window-pos hwnd :top
+		    0 0 
+		    (+ 100 (* w 25))
+		    (+ 175 (* h 25))
+		    '(:no-move))))
 
-(defvar *ms* nil)
+(defun game-won-p ()
+  "Returns true if all mines have a flag placed on them." 
+  (let ((mines 0)
+	(correct 0))
+    (dotimes (i (minesweeper-x *ms*))
+      (dotimes (j (minesweeper-y *ms*))
+	(when (mine-p *ms* i j)
+	  (incf mines)
+	  (when (flag-p *ms* i j)
+	    (incf correct)))))
+    (= mines correct)))
+
+;; I made a little icon in gimp and exported it as a microsoft icon (*.ico) file. 
+;; Then I ran generate-icon-resource on that file. I pasted the output below.
+(defvar *MINE-ICON*
+        (create-icon 32 32 1 32
+                     (make-array 4224 :element-type '(unsigned-byte 8))
+                     #(#x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #xFC #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x5F 
+                        #x00 #x00 #x00 #xD5 #x00 #x00 #x00 #x3E #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x77 
+                        #x00 #x00 #x00 #xB6 #x00 #x00 #x00 #x5A #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #xE9 
+                        #x00 #x00 #x00 #xF3 #x00 #x00 #x00 #xF3 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #xAA #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x03 
+                        #x00 #x00 #x00 #x35 #x00 #x00 #x00 #x83 #x00 #x00 #x00 #xCA #x00 #x00 #x00 #xF5 
+                        #x00 #x00 #x00 #xF5 #x00 #x00 #x00 #xFF #x00 #x00 #x00 #x83 #x00 #x00 #x00 #x35 
+                        #x00 #x00 #x00 #x03 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x6C #x00 #x00 #x00 #x6C #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #xCE 
+                        #x00 #x00 #x00 #x6C #x00 #x00 #x00 #x01 #x00 #x00 #x00 #x56 #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #x56 #x00 #x00 #x00 #x01 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x6C #x00 #x00 #x00 #xAA #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #xE4 #x00 #x00 #x00 #xC3 #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xC3 #x00 #x00 #x00 #xB0 
+                        #x00 #x00 #x00 #xAA #x00 #x00 #x00 #x6C #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x13 
+                        #x00 #x00 #x00 #xFA #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xF7 
+                        #x00 #x00 #x00 #x13 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x03 #x00 #x00 #x00 #xD3 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xD3 #x00 #x00 #x00 #x03 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x6B #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #x6B #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x09 #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #x09 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x4A #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #x4A #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x9E #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #x9E #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x6F 
+                        #x00 #x00 #x00 #xAE #x00 #x00 #x00 #xE0 #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x17 #x17 #x17 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xE0 #x00 #x00 #x00 #xDA 
+                        #x00 #x00 #x00 #x53 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xF3 #x00 #x00 #x00 #xCA 
+                        #x00 #x00 #x00 #xE9 #x00 #x00 #x00 #xFB #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x17 #x17 #x17 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x17 #x17 #x17 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFB #x00 #x00 #x00 #xD5 
+                        #x00 #x00 #x00 #xA3 #x00 #x00 #x00 #xFC #x00 #x00 #x00 #xFF #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #xAE 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xE0 #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x17 #x17 #x17 #xFF #x17 #x17 #x17 #xFF 
+                        #x37 #x37 #x37 #xFF #x37 #x37 #x37 #xFF #x37 #x37 #x37 #xFF #x37 #x37 #x37 #xFF 
+                        #x37 #x37 #x37 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xE0 #x00 #x00 #x00 #xDF 
+                        #x00 #x00 #x00 #x98 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x9E #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x17 #x17 #x17 #xFF #x17 #x17 #x17 #xFF #x37 #x37 #x37 #xFF 
+                        #x37 #x37 #x37 #xFF #x5B #x5B #x5B #xFF #x5B #x5B #x5B #xFF #x5B #x5B #x5B #xFF 
+                        #x37 #x37 #x37 #xFF #x37 #x37 #x37 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #x9E #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x4A #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x37 #x37 #x37 #xFF #x5B #x5B #x5B #xFF 
+                        #x5B #x5B #x5B #xFF #x5B #x5B #x5B #xFF #x5B #x5B #x5B #xFF #x5B #x5B #x5B #xFF 
+                        #x5B #x5B #x5B #xFF #x37 #x37 #x37 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #x4A #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x09 #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x88 #x88 #x88 #xFF #x88 #x88 #x88 #xFF 
+                        #x5B #x5B #x5B #xFF #x88 #x88 #x88 #xFF #x5B #x5B #x5B #xFF #x5B #x5B #x5B #xFF 
+                        #x5B #x5B #x5B #xFF #x17 #x17 #x17 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #x09 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x6B #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x37 #x37 #x37 #xFF #x88 #x88 #x88 #xFF 
+                        #x88 #x88 #x88 #xFF #x88 #x88 #x88 #xFF #x88 #x88 #x88 #xFF #x5B #x5B #x5B #xFF 
+                        #x5B #x5B #x5B #xFF #x17 #x17 #x17 #xFF #x17 #x17 #x17 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #x6B #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x03 #x00 #x00 #x00 #xD3 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x37 #x37 #x37 #xFF 
+                        #x88 #x88 #x88 #xFF #x88 #x88 #x88 #xFF #xC7 #xC7 #xC7 #xFF #x5B #x5B #x5B #xFF 
+                        #x37 #x37 #x37 #xFF #x17 #x17 #x17 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xD3 #x00 #x00 #x00 #x03 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x13 
+                        #x00 #x00 #x00 #xFC #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x37 #x37 #x37 #xFF #x88 #x88 #x88 #xFF #x49 #x49 #x49 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xF7 
+                        #x00 #x00 #x00 #x77 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #xAA 
+                        #x00 #x00 #x00 #x76 #x00 #x00 #x00 #xC3 #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xC3 #x00 #x00 #x00 #xB0 
+                        #x00 #x00 #x00 #x6C #x00 #x00 #x00 #xAA #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x6C #x00 #x00 #x00 #x6C 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x01 #x00 #x00 #x00 #x56 #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #x56 #x00 #x00 #x00 #x01 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x6C #x00 #x00 #x00 #x6C #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x03 
+                        #x00 #x00 #x00 #x35 #x00 #x00 #x00 #x83 #x00 #x00 #x00 #xCA #x00 #x00 #x00 #xF5 
+                        #x00 #x00 #x00 #xF5 #x00 #x00 #x00 #xFF #x00 #x00 #x00 #x83 #x00 #x00 #x00 #x35 
+                        #x00 #x00 #x00 #x03 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x6C #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #xFF 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #xFF #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #xCC 
+                        #x00 #x00 #x00 #xCC #x00 #x00 #x00 #x73 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #xC1 
+                        #x00 #x00 #x00 #xF3 #x00 #x00 #x00 #x98 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #xFF #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 #x00 
+                        #xFF #xFF #xFF #xFF #xFF #xFF #x7F #xFF #xFF #xFE #x3F #xFF #xFF #xFE #x3F #xFF 
+                        #xFF #xFE #x3F #xFF #xFD #xE0 #x07 #x3F #xFE #x00 #x01 #x3F #xFF #x00 #x00 #x3F 
+                        #xFE #x00 #x00 #x7F #xFC #x00 #x00 #x3F #xFC #x00 #x00 #x3F #xF8 #x00 #x00 #x1F 
+                        #xF8 #x00 #x00 #x1F #xF8 #x00 #x00 #x1F #xE0 #x00 #x00 #x07 #x80 #x00 #x00 #x01 
+                        #xE0 #x00 #x00 #x07 #xF8 #x00 #x00 #x1F #xF8 #x00 #x00 #x1F #xF8 #x00 #x00 #x1F 
+                        #xFC #x00 #x00 #x3F #xFC #x00 #x00 #x3F #xFE #x00 #x00 #x7F #xFE #x00 #x00 #x3F 
+                        #xFC #x80 #x01 #x3F #xFF #xE0 #x07 #xBF #xFF #xFE #x3F #xFF #xFF #xFE #x3F #xFF 
+                        #xFF #xFE #x3F #xFF #xFF #xFF #x7F #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF )))
 
 (defwndproc minesweeper-wndproc (hwnd msg wparam lparam)
   (switch msg
     ((const +wm-create+)
      (setf *ms* (random-game))
+     (resize-window hwnd)
 
      ;; add menus
      (add-menu-bar hwnd
@@ -236,12 +550,18 @@
 	       (t
 		(when (> (minesweeper-flags *ms*) 0)
 		  (set-flag *ms* i j t)
-		  (decf (minesweeper-flags *ms*))))))))
+		  (decf (minesweeper-flags *ms*))
+		  (when (game-won-p)
+		    (setf (minesweeper-finished *ms*) t)
+		    (message-box :hwnd hwnd 
+				 :text "You won!"
+				 :caption "Win"))))))))
        (invalidate-rect hwnd nil t)))
     ((const +wm-command+)
      (switch (loword wparam)
        (1 ;; new
 	(setf *ms* (random-game))
+	(resize-window hwnd)
 	(invalidate-rect hwnd nil t))
        (2 ;; quit
 	(destroy-window hwnd))
@@ -254,6 +574,7 @@ Copyright (c) Frank James 2016.
 		     :caption "About"))
        (5 ;; new
 	(setf *ms* (random-game))
+	(resize-window hwnd)
 	(invalidate-rect hwnd nil t))
        (6 ;; beginner
 	(setf *starting-mines* 10
@@ -295,7 +616,8 @@ Copyright (c) Frank James 2016.
   (default-message-loop (callback minesweeper-wndproc)
       :class-name "FTW_MINESWEEPER"
       :title "Minesweeper"
-      :width 350 :height 425))
+      :width 350 :height 425
+      :icon *mine-icon*))
 
 
   

@@ -24,7 +24,7 @@ then a new table is set.
     (setf *accel* (create-accelerator-table entries))))
 
 
-(defun default-message-loop (wndproc &key class-name title width height background icon)
+(defun default-message-loop (wndproc &key class-name title width height background icon icon-small)
   "Standard message loop. Defines a new window class with :arrow cursor and 3d-face background,
 creates an overlapped, visible  window of this class. Shows, updates and sets this window to 
 the foreground. Then loops, processing messages, until a WM_QUIT message is received.
@@ -35,6 +35,7 @@ Also processes accelerator keys set using SET-ACCELERATOR-TABLE.
     (register-class cname 
                     wndproc
                     :icon icon
+		    :icon-small icon-small
                     :cursor (load-cursor :arrow)
                     :background (or background (get-sys-color-brush :3d-face)))
     (let ((hwnd (create-window cname 
