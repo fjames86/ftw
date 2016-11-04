@@ -35,6 +35,57 @@ It is not a cross platform GUI library.
 Several extra functions and macros are provided which the author has found useful.
 These are found in ftw.lisp.
 
+## 3.1 Constants 
+To use the Win32 API you need access to a vast number of predefined constants. 
+These are defined in constants.lisp. Rather than export each of these symbols from 
+the FTW package the programmer has two options: either access using FTW::+fred+ 
+or use the macros 
+```
+(ftw:const +fred+)
+(ftw:logior-consts +fred+ +jim+)
+```
+
+The macro `CONST` takes a string designator and converts to the symbol with that name in the `FTW` package. 
+In many places you need to pass a bitmask of logical-OR of several flags, use `LOGIOR-CONSTS` for this
+which performs the same transformation. 
+
+Note that there are possibly many constants which have not been defined in constants.lisp. These should be 
+added over time as they become useful.
+
+## 3.2 Resources 
+When writing Win32 programs in the C programming language it is common to embed binary resources such 
+as icons, cursors and bitmaps using the resource compiler. These can then be referenced by an integer 
+ID from various Win32 calls. This is not possible when calling these functions at from Lisp because 
+we have to do everthing at runtime. Where possible I have included the functions for generating 
+these at runtime either by loading from files or from raw binary data. 
+
+To make it easier I have also included several functions for pregenerating Lisp code for icons, cursors and 
+bitmaps. This has the equivalent semantics as the normal Win32 resource compiler but we're still doing 
+all the work at runtime. 
+
+The advantage of pregenerating code and putting that into your project is you don't need to ship 
+external images which need to be loaded at runtime - you need only compile your code. 
+
+To e.g. embed an icon into your project do the following: 
+1. Get your icon file e.g. by drawing it in gimp. make sure it is 32x32 pixels and exported as 32-bit
+with 8 bits each of alpha and rgb. 
+2. Run `(ftw:generate-icon-resource "myicon.ico")`
+This will print out the code you need to paste into your project. 
+
+See the minesweeper example of how you can have a custom icon without shipping the file separately. 
+
+## 3.3 Dialogs
+The standard mechanism for drawing modal and modeless dialogs with Win32 is to use the 
+resource compiler to generate the specification. This is not possible for us so we must do it at runtime.
+
+The functions `DIALOG-BOX` and `CREATE-DIALOG` create modal and modeless dialogs respectively. Both accept 
+the same inputs. The difference is that modal dialogs do not return control to the caller until 
+the dialog has been closed whereas modeless dialogs return control immediately and run alongside the original
+window. 
+
+
+
+
 # 4. Examples
 Various examples are provided which show various levels of abstractions and a
 good showcase of how to use it.

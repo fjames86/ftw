@@ -397,11 +397,11 @@ TIMEOUT ::= timeout in milliseconds.
 	nil
 	p)))
 
-(defmacro defwndproc (name (hwnd umsg wparam lparam) &body body)
+(defmacro defwndproc (name (hwnd msg wparam lparam) &body body)
   "Define a Window Proc callback for use with a window class definition." 
   `(defcallback ,name lresult
        ((,hwnd :pointer)
-	(,umsg :uint32)
+	(,msg :uint32)
 	(,wparam wparam)
 	(,lparam lparam))
      ,@body))
@@ -474,13 +474,15 @@ ICON, ICON-SMALL, CURSOR ::= handles for icons and cursor.
 BACKGROUN ::= background brush handle 
 "
   (declare (type string class-name)
-	   (type foreign-pointer wndproc)
 	   (type (or null integer list) styles)
 	   (type (or null foreign-pointer) icon icon-small cursor background))
+
+  (when (symbolp wndproc) (setf wndproc (get-callback wndproc)))
   
   ;; unregister it first by force
   (unregister-class class-name)
-  
+
+
   (with-foreign-object (wnd '(:struct wndclassex))
     (with-wide-string (cls-name class-name)
       (memset wnd (foreign-type-size '(:struct wndclassex)))
@@ -3599,6 +3601,15 @@ of this function so that users preferences are presented back to them.
   (lparam lparam))
 
 (defun create-dialog (wndproc controls &key instance hwnd lparam styles ex-styles x y cx cy class-name title point-size font)
+  "Create a modeless dialog.
+Controls should be a list of forms specifying each control which should be placed on the dialog.
+CONTROLS ::= CONTROL*
+CONTROL ::= &key class-name x y cx cy styles ex-styles title 
+
+Returns dialog hwnd.
+"
+  (when (symbolp wndproc) (setf wndproc (get-callback wndproc)))
+
   (with-foreign-object (buffer :uint8 (* 32 1024))
     (dlgtemplate-foreign buffer controls 
 			 :styles styles 
@@ -3624,6 +3635,15 @@ of this function so that users preferences are presented back to them.
   (lparam lparam))
 
 (defun dialog-box (wndproc controls &key instance hwnd lparam styles ex-styles x y cx cy class-name title point-size font)
+  "Create a modal dialog. This will block until the user closes the dialog.
+
+Controls should be a list of forms specifying each control which should be placed on the dialog.
+CONTROL ::= &key class-name x y cx cy styles ex-styles title 
+
+Returns hwnd.
+" 
+  (when (symbolp wndproc) (setf wndproc (get-callback wndproc)))
+
   (with-foreign-object (buffer :uint8 (* 32 1024))
     (dlgtemplate-foreign buffer controls 
 			 :styles styles 
@@ -3647,6 +3667,7 @@ of this function so that users preferences are presented back to them.
   (result :pointer))
 
 (defun end-dialog (hwnd &optional result)
+  "This must be called by dialog wndproc to close the dialog." 
   (%end-dialog hwnd 
 	       (cond
 		 ((null result) (null-pointer))
@@ -3815,6 +3836,18 @@ of this function so that users preferences are presented back to them.
   (count :int32))
 
 (defun create-accelerator-table (entries)
+  "Set the current accelerator table. 
+ENTRIES ::= ENTRY*
+ENTRY ::= key cmd &rest virt
+KEY ::= either character, integer or keyword specifying the virtual key. 
+If a keyword, this should be a name suitable for input to virtual-key-code.
+CMD ::= integer specifying the ID to send with the WM_COMMAND message. This should match the ID of your 
+menu item which this accelerator is for.
+VIRT ::= list of :ALT :CONTROL :NO-INVERT :SHIFT :VIRTUAL-KEY
+The symbol :VIRTUAL-KEY is mandatory if the key is specified by keyword. 
+
+Returns the handle to the accelerator table. 
+" 
   (with-foreign-object (a '(:struct accel) (length entries))
     (do ((i 0 (1+ i))
 	 (e entries (cdr e)))
@@ -4224,11 +4257,11 @@ of this function so that users preferences are presented back to them.
 (defun drag-query-files (hdrop)
   "List all files that were dropped." 
   (let ((nfiles (%drag-query-file hdrop #xffffffff (null-pointer) 0)))
-    (loop :for i :below nfiles :collect
-       (let ((count (%drag-query-file hdrop i (null-pointer) 0)))
-         (with-foreign-object (buffer :uint8 (* (1+ count) 2))
-           (%drag-query-file hdrop i buffer count)
-           (foreign-string-to-lisp buffer :encoding :ucs-2le))))))
+    (with-foreign-object (buffer :uint8 1024)
+      (loop :for i :below nfiles :collect
+	 (progn
+	   (%drag-query-file hdrop i buffer 512)
+	   (foreign-string-to-lisp buffer :encoding :ucs-2le))))))
 
 (defcfun (%drag-query-point "DragQueryPoint" :convention :stdcall)
     :boolean

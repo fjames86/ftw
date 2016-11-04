@@ -3,7 +3,8 @@
 
 
 (defpackage #:ftw.dragdrop
-  (:use #:cl #:cffi #:ftw))
+  (:use #:cl #:cffi #:ftw)
+  (:export #:dragdrop))
 
 (in-package #:ftw.dragdrop)
 

@@ -4,6 +4,9 @@
 ;;; This file defines a simple little turtle type program.
 ;;; Users should be able program its movements like you would with Logo.
 
+(eval-when (:load-toplevel :compile-toplevel :execute)
+  (ql:quickload "parse-number"))
+
 (defpackage #:ftw.turtle
   (:use #:cl #:cffi #:ftw)
   (:export #:turtle))
@@ -154,6 +157,7 @@
 ;; we can then place this whereever we want on the main gui
 
 (defvar *wm-turtle* (register-window-message "WM_TURTLE"))
+(defparameter *turtle-label* nil)
 
 (defwndproc turtle-wndproc (hwnd msg wparam lparam)
   (switch msg
@@ -208,7 +212,6 @@
 ;; we want the turtle to be on the left maybe with x/y/theta/pen info in a static label
 ;; on the right should be an edit control to accept commands 
 
-(defparameter *turtle-label* nil)
 (defparameter *turtle-edit* nil)
 (defparameter *turtle-wnd* nil)
 (defparameter *turtle-button* nil)
