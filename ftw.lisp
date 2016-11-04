@@ -40,6 +40,7 @@ Also processes accelerator keys set using SET-ACCELERATOR-TABLE.
                     :background (or background (get-sys-color-brush :3d-face)))
     (let ((hwnd (create-window cname 
                                :window-name (or title cname)
+			       :ex-styles (logior-consts +ws-ex-appwindow+)
                                :styles (logior +ws-overlappedwindow+ +ws-visible+)
                                :x 100 :y 100 :width (or width 400) :height (or height 300)))
           (msg (make-msg)))
@@ -306,3 +307,23 @@ CHILDREN ::= MENU* menu children
                       0
                       0
                       '(:no-size)))))
+
+
+(defmacro with-double-buffering ((var hwnd) &body body)
+  "Evaluate body in a WITH-PAINT context where VAR is bound to an in-memory HDC
+which is blitted onto the hwnd's DC as the final step. This prevents flickering 
+when drawing lots of small items on the screen."
+  (alexandria:with-gensyms (gbm gold gwidth gheight ghdc gps)
+    `(with-paint (,hwnd ,ghdc ,gps)
+       (let ((,gwidth (rect-right (paintstruct-paint ,gps)))
+	     (,gheight (rect-bottom (paintstruct-paint ,gps))))
+	 (with-compatible-dc (,var ,ghdc)
+	   (let* ((,gbm (create-compatible-bitmap ,ghdc ,gwidth ,gheight))
+		  (,gold (select-object ,var ,gbm)))
+	     (unwind-protect (progn ,@body)	     
+	       (bit-blt ,ghdc 0 0 ,var 0 0 
+			:width ,gwidth
+			:height ,gheight 
+			:raster-op :srccopy)	     
+	       (select-object ,var ,gold)
+	       (delete-object ,gbm))))))))

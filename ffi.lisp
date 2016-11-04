@@ -5415,3 +5415,112 @@ on what those integers can be.
 			     (:sentry #x00080000)
 			     (:sync #x0)
 			     (:system #x00200000)))))
+
+
+(defcfun (%get-window "GetWindow" :convention :stdcall)
+    :pointer
+  (hwnd :pointer)
+  (cmd :uint32))
+
+(defun get-window (hwnd &optional cmd)
+  (let ((res (%get-window hwnd
+			  (ecase (or cmd :owner)
+			    (:child 5)
+			    (:enabled-popup 6)
+			    (:first 0)
+			    (:last 1)
+			    (:next 2)
+			    (:prev 3)
+			    (:owner 4)))))
+    (if (null-pointer-p res)
+	nil
+	res)))
+
+(defcfun (%pie "Pie" :convention :stdcall)
+    :boolean
+  (hdc :pointer)
+  (left :int32)
+  (top :int32)
+  (right :int32)
+  (bottom :int32)
+  (x1 :int32)
+  (y1 :int32)
+  (x2 :int32)
+  (y2 :int32))
+
+(defun pie (hdc left top right bottom x1 y1 x2 y2)
+  (%pie hdc left top right bottom x1 y1 x2 y2))
+
+(defcfun (%arc "Arc" :convention :stdcall)
+    :boolean
+  (hdc :pointer)
+  (left :int32)
+  (top :int32)
+  (right :int32)
+  (bottom :int32)
+  (x-start :int32)
+  (y-start :int32)
+  (x-end :int32)
+  (y-end :int32))
+
+(defun arc (hdc left top right bottom x-start y-start x-end y-end)
+  (%arc hdc
+        left top right bottom
+        x-start y-start
+        x-end y-end))
+
+(defcfun (%arc-to "ArcTo" :convention :stdcall)
+    :boolean
+  (hdc :pointer)
+  (left :int32)
+  (top :int32)
+  (right :int32)
+  (bottom :int32)
+  (x1 :int32)
+  (y1 :int32)
+  (x2 :int32)
+  (y2 :int32))
+
+(defun arc-to (hdc left top right bottom x1 y1 x2 y2)
+  (%arc-to hdc left top right bottom x1 y1 x2 y2))
+
+(defcfun (%angle-arc "AngleArc" :convention :stdcall)
+    :boolean
+  (hdc :pointer)
+  (x :int32)
+  (y :int32)
+  (radius :uint32)
+  (start-angle :float)
+  (sweep-angle :float))
+
+(defun angle-arc (hdc x y radius start-angle sweep-angle)
+  (%angle-arc hdc
+              x y
+              radius
+              start-angle sweep-angle))
+
+(defcfun (%set-arc-direction "SetArcDirection" :convention :stdcall)
+    :int32
+  (hdc :pointer)
+  (dir :int32))
+
+(defun set-arc-direction (hdc &optional clockwisep)
+  (let ((r (%set-arc-direction hdc
+                               (if clockwisep
+                                   2
+                                   1))))
+    (if (= r 2)
+        t
+        nil)))
+
+(defcfun (%get-arc-direction "GetArcDirection" :convention :stdcall)
+    :int32
+  (hdc :pointer))
+
+(defun get-arc-direction (hdc)
+  (let ((r (%get-arc-direction hdc)))
+    (if (= r 2)
+        t
+        nil)))
+
+         

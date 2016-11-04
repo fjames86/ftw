@@ -460,9 +460,7 @@ Repeat recursively."
       '((:keyn 1 :control :virtual-key)
         (:keyq 2 :control :virtual-key)))
 
-     (set-timer :hwnd hwnd :elapse 1000 :replace-timer 4)
-
-     (send-message hwnd (const +wm-seticon+) :wparam 1 :lparam *mine-icon*))
+     (set-timer :hwnd hwnd :elapse 1000 :replace-timer 4))
     ((const +wm-paint+)
      (with-paint (hwnd hdc)
        (set-bk-mode hdc :transparent)
@@ -603,8 +601,7 @@ Copyright (c) Frank James 2016.
      (let ((btn (find-window "button" "New" hwnd)))
        (when btn 
 	 (set-window-pos btn :top
-			 (- (truncate (getf (get-client-rect hwnd) :right 0) 2)
-			    22)
+			 (- (truncate (getf (get-client-rect hwnd) :right 0) 2) 22)
 			 20
 			 45 22)))
      (invalidate-rect hwnd nil t))
@@ -619,7 +616,8 @@ Copyright (c) Frank James 2016.
       :class-name "FTW_MINESWEEPER"
       :title "Minesweeper"
       :width 350 :height 425
-      :icon *mine-icon*))
+      :icon *mine-icon*
+      :icon-small *mine-icon*))
 
 
   

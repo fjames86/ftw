@@ -354,7 +354,14 @@
 	   #:load-keyboard-layout 
 	   #:is-window-enabled 
 	   #:play-sound 
-
+	   #:get-window 
+       #:pie
+       #:arc
+       #:arc-to
+       #:angle-arc
+       #:set-arc-direction
+       #:get-arc-direction
+       
 	   ;; ftw.lisp provides some extra useful utilities 
 	   #:set-accelerator-table 
 	   #:set-default-font 
@@ -369,6 +376,7 @@
 	   #:get-client-size
 	   #:add-menu-bar
 	   #:set-window-to-center 
+	   #:with-double-buffering
 	   ))
 
 
