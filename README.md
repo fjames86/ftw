@@ -31,17 +31,21 @@ library and does not belong here.
 This is a Windows only library and does not work on any other platform.
 It is not a cross platform GUI library.
 
-# 3. Examples
+# 3. Extra utilities
+Several extra functions and macros are provided which the author has found useful.
+These are found in ftw.lisp.
+
+# 4. Examples
 Various examples are provided which show various levels of abstractions and a
 good showcase of how to use it.
 
-## 3.1 Zetcode samples
+## 4.1 Zetcode samples
 The rather comprehensive tutorial for the C programming language can be
 found here [zetcode website](http://zetcode.com/gui/winapi/).
 These have been translated to Lisp and show that the same GUIs can be written
 which correspond to largely the same structure.
 
-## 3.2 Climage
+## 4.2 Climage
 This example GUI displays a two list boxes which show the packages and
 exported symbols. Clicking on a symbol displays the documentation for it.
 
@@ -50,23 +54,37 @@ and accelerator keys -- these are the keyboard combinations which
 are used as shortcuts for menu items.
 Ctrl+F brings up a Find dialog to search for a given symbol. Ctrl+Q quits.
 
-## 3.3 Dragdrop
+## 4.3 Dragdrop
 This shows how to support drag and drop functionality by handling the WM_DROPFILES message.
 
-## 3.4 Pong
+## 4.4 Pong
 This is a small and not very well written example of how you might go about
 writing games. It's just a silly little pong game but shows the basic idea.
 
-## 3.5 Icon
+## 4.5 Icon
 Shows how to add icons and other graphics
 
-## 3.6 Minesweeper
+## 4.6 Minesweeper
 Simple minesweeper game.
 
-# 4. Notes
-Requires CFFI. Developed on Windows 8.1 and Windows 7 but should work on
-basically any version because all the APIs are pretty stable and haven't changed
-for a long time.
+## 4.7 Tetris
+Simple tetris clone.
+
+## 4.8 Macroman
+Simple pacman clone.
+
+# 5. Notes
+Requires CFFI. Developed on Windows 8.1 and Windows 7 using SBCL 
+but should work on basically any Windows version because all the APIs are 
+pretty stable and haven't changed for a long time. 
+Should work with any Lisp implementation which provides FFI callbacks
+
+## 5.1 TODO
+ - [ ] Try with CCL, Lispworks etc.
+ - [ ] Better error handling.
+
+
+
 
 Licensed under the terms of the MIT license.
 
