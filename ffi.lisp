@@ -5557,3 +5557,149 @@ on what those integers can be.
         nil)))
 
          
+(defcfun (%set-scroll-info "SetScrollInfo" :convention :stdcall)
+    :int32
+  (hwnd :pointer)
+  (bar :int32)
+  (lp :pointer)
+  (redraw :boolean))
+
+(defcstruct scrollinfo
+  (size :uint32)
+  (mask :uint32)
+  (min :int32)
+  (max :int32)
+  (page :uint32)
+  (pos :int32)
+  (trackpos :int32))
+
+(defun set-scroll-info (hwnd bar-type &key mask min max page pos trackpos redraw)
+  (unless mask
+    (when (or min max) (push :range mask))
+    (when page (push :page mask))
+    (when trackpos (push :trackpos mask))
+    (when pos (push :pos mask)))
+  
+  (with-foreign-object (lp '(:struct scrollinfo))
+    (setf (foreign-slot-value lp '(:struct scrollinfo) 'size)
+	  (foreign-type-size '(:struct scrollinfo))
+	  (foreign-slot-value lp '(:struct scrollinfo) 'mask)
+	  (if (listp mask)
+	      (mergeflags mask
+			  (:disable-no-scroll +sif-disablenoscroll+)
+			  (:page +sif-page+)
+			  (:trackpos +sif-trackpos+)
+			  (:pos +sif-pos+)
+			  (:range +sif-range+))
+	      mask)
+	  (foreign-slot-value lp '(:struct scrollinfo) 'min)
+	  (or min 0)
+	  (foreign-slot-value lp '(:struct scrollinfo) 'max)
+	  (or max 0)
+	  (foreign-slot-value lp '(:struct scrollinfo) 'page)
+	  (or page 0)
+	  (foreign-slot-value lp '(:struct scrollinfo) 'pos)
+	  (or pos 0)
+	  (foreign-slot-value lp '(:struct scrollinfo) 'trackpos)
+	  (or trackpos 0))
+    (%set-scroll-info hwnd
+		      (ecase bar-type
+			(:control +sb-ctl+)
+			(:horz +sb-horz+)
+			(:vert +sb-vert+))
+		      lp
+		      redraw)))
+
+(defcfun (%get-scroll-info "GetScrollInfo" :convention :stdcall)
+    :boolean
+  (hwnd :pointer)
+  (bar :int32)
+  (lp :pointer))
+
+(defun get-scroll-info (hwnd bar-type)
+  (with-foreign-object (lp '(:struct scrollinfo))
+    (setf (foreign-slot-value lp '(:struct scrollinfo) 'size)
+	  (foreign-type-size '(:struct scrollinfo))
+	  (foreign-slot-value lp '(:struct scrollinfo) 'mask)
+	  +sif-all+)
+    (let ((res (%get-scroll-info hwnd
+				 (ecase bar-type
+				   (:control +sb-ctl+)
+				   (:horz +sb-horz+)
+				   (:vert +sb-vert+))
+				 lp)))
+      (if res 
+	  (list :pos (foreign-slot-value lp '(:struct scrollinfo) 'pos)
+		:page (foreign-slot-value lp '(:struct scrollinfo) 'page)
+		:trackpos (foreign-slot-value lp '(:struct scrollinfo) 'trackpos)
+		:min (foreign-slot-value lp '(:struct scrollinfo) 'min)
+		:max (foreign-slot-value lp '(:struct scrollinfo) 'max))
+	  (get-last-error)))))
+
+
+(defcfun (%scroll-window-ex "ScrollWindowEx" :convention :stdcall)
+    :int32
+  (hwnd :pointer)
+  (dx :int32)
+  (dy :int32)
+  (scoll :pointer)
+  (clip :pointer)
+  (update-region :pointer)
+  (update :pointer)
+  (flags :uint32))
+
+(defun scroll-window-ex (hwnd dx dy &key scroll clip update flags)
+  (with-foreign-objects ((srect '(:struct rect))
+			 (crect '(:struct rect))
+			 (urect '(:struct rect)))
+    (when scroll (rect-foreign scroll srect))
+    (when clip (rect-foreign clip crect))
+    (let ((res (%scroll-window-ex hwnd
+				  dx
+				  dy
+				  (if scroll srect (null-pointer))
+				  (if clip crect (null-pointer))
+				  (or update (null-pointer))
+				  urect
+				  (mergeflags flags
+					      (:erase +sw-erase+)
+					      (:invalidate +sw-invalidate+)
+					      (:scroll-children +sw-scrollchildren+)
+					      (:smooth-scroll +sw-smoothscroll+)))))
+      (values res
+	      (foreign-rect urect (make-rect))))))
+
+(defcfun (%show-scroll-bar "ShowScrollBar" :convention :stdcall)
+    :boolean
+  (hwnd :pointer)
+  (bar :int32)
+  (show :boolean))
+
+(defun show-scroll-bar (hwnd bar-type &optional show)
+  (%show-scroll-bar hwnd
+		    (ecase bar-type
+		      (:control +sb-ctl+)
+		      (:horz +sb-horz+)
+		      (:vert +sb-vert+))
+		    show))
+
+(defcfun (%enable-scroll-bar "EnableScrollBar" :convention :stdcall)
+    :boolean
+  (hwnd :pointer)
+  (flags :uint32)
+  (arrows :uint32))
+
+(defun enable-scroll-bar (hwnd bar-type &optional arrows)
+  (%enable-scroll-bar hwnd
+		      (ecase bar-type
+			(:control +sb-ctl+)
+			(:horz +sb-horz+)
+			(:vert +sb-vert+)
+			(:both +sb-both+))
+		      (ecase (or arrows :enable-both)
+			(:enable-both +esb-enable-both+)
+			(:disable-both +esb-disable-both+)
+			(:disable-up +esb-disable-up+)
+			(:disable-down +esb-disable-down+)
+			(:disable-left +esb-disable-left+)
+			(:disable-right +esb-disable-right+))))

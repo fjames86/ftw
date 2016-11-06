@@ -290,7 +290,7 @@
 (defconstant +ws-disabled+ #x08000000)
 (defconstant +ws-dialog-frame+ #x00400000)
 (defconstant +ws-group+ #x00020000)
-(defconstant +ws-hscroll #x100000)
+(defconstant +ws-hscroll+ #x100000)
 (defconstant +ws-iconic+ #x20000000)
 (defconstant +ws-maximize+ #x01000000)
 (defconstant +ws-maximizebox+ #x10000)

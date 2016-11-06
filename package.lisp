@@ -361,6 +361,11 @@
        #:angle-arc
        #:set-arc-direction
        #:get-arc-direction
+       #:set-scroll-info
+       #:get-scroll-info
+       #:scroll-window-ex
+       #:show-scroll-bar
+       #:enable-scroll-bar
        
 	   ;; ftw.lisp provides some extra useful utilities 
 	   #:set-accelerator-table 
