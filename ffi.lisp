@@ -5138,12 +5138,17 @@ that the user chose. In addition the driver, printer and output names are return
         (when res 
           (mem-aref handle :pointer))))))
 
-(defcstruct docinfo
-  (size :int32)
+;; (defcstruct docinfo
+;;   (size :int32)
+;;   (name :pointer)
+;;   (output :pointer)
+;;   (datatype :pointer)
+;;   (type :uint32))
+
+(defcstruct docinfo1
   (name :pointer)
   (output :pointer)
-  (datatype :pointer)
-  (type :uint32))
+  (datatype :pointer))
 
 (defcfun (%start-doc-printer "StartDocPrinterW" :convention :stdcall)
     :uint32
@@ -5152,20 +5157,16 @@ that the user chose. In addition the driver, printer and output names are return
   (docinfo :pointer))
 
 (defun start-doc-printer (hprinter &key name output datatype)
-  (with-foreign-object (lp '(:struct docinfo))
+  (with-foreign-object (lp '(:struct docinfo1))
     (with-wide-string (n (or name ""))
       (with-wide-string (o (or output ""))
         (with-wide-string (d (or datatype ""))
-          (setf (foreign-slot-value lp '(:struct docinfo) 'size)
-                (foreign-type-size '(:struct docinfo))
-                (foreign-slot-value lp '(:struct docinfo) 'name)
+          (setf (foreign-slot-value lp '(:struct docinfo1) 'name)
                 (if name n (null-pointer))
-                (foreign-slot-value lp '(:struct docinfo) 'output)
+                (foreign-slot-value lp '(:struct docinfo1) 'output)
                 (if output o (null-pointer))
-                (foreign-slot-value lp '(:struct docinfo) 'datatype)
-                (if datatype d (null-pointer))
-                (foreign-slot-value lp '(:struct docinfo) 'type)
-                0)
+                (foreign-slot-value lp '(:struct docinfo1) 'datatype)
+                (if datatype d (null-pointer)))
           (let ((res (%start-doc-printer hprinter
                                          1
                                          lp)))
@@ -5703,3 +5704,77 @@ on what those integers can be.
 			(:disable-down +esb-disable-down+)
 			(:disable-left +esb-disable-left+)
 			(:disable-right +esb-disable-right+))))
+
+
+(defcfun (%create-emf "CreateEnhMetaFileW" :convention :stdcall)
+    :pointer
+  (hdc :pointer)
+  (filename :pointer)
+  (rect :pointer)
+  (description :pointer))
+
+(defun create-emf (rect &optional hdc)
+  (with-foreign-object (r '(:struct rect))
+    (rect-foreign rect r)
+    (%create-emf (or hdc (null-pointer))                           
+                 (null-pointer)
+                 r
+                 (null-pointer))))
+
+(defcfun (%play-emf "PlayEnhMetaFile" :convention :stdcall)
+    :boolean
+  (hdc :pointer)
+  (emf :pointer)
+  (rect :pointer))
+
+(defun play-emf (emf hdc rect)
+  (with-foreign-object (r '(:struct rect))
+    (rect-foreign rect r)
+    (%play-emf hdc emf r)))
+
+(defcfun (%delete-emf "DeleteEnhMetaFile" :convention :stdcall)
+    :boolean
+  (emf :pointer))
+
+(defun delete-emf (emf)
+  (%delete-emf emf))
+
+(defmacro with-emf ((var rect &optional hdc) &body body)
+  `(let ((,var (create-emf ,rect ,hdc)))
+     (unwind-protect (progn ,@body)
+       (delete-emf ,var))))
+
+(defcfun (%get-emf-bits "GetEnhMetaFileBits" :convention :stdcall)
+    :uint32
+  (emf :pointer)
+  (count :uint32)
+  (buffer :pointer))
+
+(defun get-emf-bits (emf buffer &key (start 0) end)
+  (let* ((count (%get-emf-bits emf 0 (null-pointer)))
+         (bcount (- (or end (length buffer)) start))
+         (the-count (min count bcount)))
+    (unless (zerop count)
+      (with-foreign-object (b :uint8 the-count)
+        (dotimes (i the-count)
+          (setf (aref buffer (+ start i)) (mem-aref b :uint8 i))))
+      (values buffer 
+              (+ start the-count)))))
+
+(defcfun (%set-emf-bits "SetEnhMetaFileBits" :convention :stdcall)
+    :pointer
+  (count :uint32)
+  (buffer :pointer))
+
+(defun set-emf-bits (buffer &key (start 0) end)
+  (let ((count (- (or end (length buffer)) start)))
+    (with-foreign-object (b :uint8 count)
+      (dotimes (i count)
+        (setf (mem-aref b :uint8 i) (aref buffer (+ start i))))
+      (%set-emf-bits count b))))
+
+(defmacro with-emf-from-bits ((var buffer &key (start 0) end) &body body)
+  `(let ((,var (set-emf-bits ,buffer :start ,start :end ,end)))
+     (unwind-protect (progn ,@body)
+       (delete-emf ,var))))
+

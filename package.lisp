@@ -366,6 +366,13 @@
        #:scroll-window-ex
        #:show-scroll-bar
        #:enable-scroll-bar
+       #:create-emf
+       #:play-emf
+       #:delete-emf
+       #:with-emf
+       #:get-emf-bits
+       #:set-emf-bits
+       #:with-emf-from-bits
        
 	   ;; ftw.lisp provides some extra useful utilities 
 	   #:set-accelerator-table 
