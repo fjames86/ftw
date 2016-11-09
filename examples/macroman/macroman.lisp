@@ -13,7 +13,12 @@
 ;;; 5. Animations between levels
 ;;; 6. High score save file. 
 ;;; 7. Basically all state is held by lots of globals. This could be consolidated into 
-;;; a struct which holds all the state. 
+;;; a struct which holds all the state.
+;;; 
+;;; See here for more info 
+;;; http://www.gamasutra.com/view/feature/3938/the_pacman_dossier.php?print=1
+;;;
+
 
 
 (defpackage #:ftw.macroman
@@ -243,16 +248,16 @@
      
      (when (dotp x y)
        (clear-dot x y)
-       (incf *score* 1))
+       (incf *score* 10))
      
      (when (pelletp x y)
        (clear-dot x y)
-       (incf *score* 5)
+       (incf *score* 50)
        (setf *invincible* 100)))))
 
 
 (defstruct ghost 
-  name x y dir)
+  name x y dir (eyes 0))
 
 (defparameter *ghosts*
   (list (make-ghost :name :blinky :x 13 :y 13 :dir :up)
@@ -297,18 +302,22 @@ At the moment it chooses randomly which is pretty bad and makes the game too eas
        (setf x (mod x +map-width+))
        (setf (ghost-x g) x
 	     (ghost-y g) y)))))
-  
+
+(defun init-ghosts ()
+  (setf *ghosts*
+	(list (make-ghost :name :blinky :x 13 :y 13 :dir :up)
+	      (make-ghost :name :pinky :x 13 :y 13 :dir :up)
+	      (make-ghost :name :inky :x 13 :y 13 :dir :up)
+	      (make-ghost :name :clyde :x 13 :y 13 :dir :up))))
+	
 (defun new-game ()
   (init-dots)
   (setf *x* 12 
 	*y* 22
 	*dir* :up
-	*ghosts* (list (make-ghost :name :blinky :x 13 :y 13 :dir :up)
-		       (make-ghost :name :pinky :x 13 :y 13 :dir :up)
-		       (make-ghost :name :inky :x 13 :y 13 :dir :up)
-		       (make-ghost :name :clyde :x 13 :y 13 :dir :up))
 	*score* 0
-	*lives* 3))
+	*lives* 3)
+  (init-ghosts))
 
 (defun detect-hits ()
   (dolist (g *ghosts*)
@@ -326,7 +335,8 @@ At the moment it chooses randomly which is pretty bad and makes the game too eas
 	   ;; kill player 
 	   (decf *lives*)
 	   (setf *x* 12 *y* 22
-		 *invincible* 30)	   
+		 *invincible* 30)
+	   (init-ghosts)
 	   (when (= *lives* 0)
 	     (new-game))))))))
 	  
@@ -345,7 +355,7 @@ At the moment it chooses randomly which is pretty bad and makes the game too eas
 (defun macroman-create (hwnd)
   (new-game)
   (set-timer :hwnd hwnd
-	     :elapse 50
+	     :elapse 75
 	     :replace-timer 1))
 
 (defconstant +left-margin+ 100)
@@ -451,14 +461,46 @@ At the moment it chooses randomly which is pretty bad and makes the game too eas
 		       (:clyde (encode-rgb 248 188 45))))))
 	 (hold-brush (select-object hdc brush))
 	 (x (ghost-x g))
-	 (y (ghost-y g)))
-    (ellipse hdc 
-	     (+ +left-margin+ (* x +width+) (- (truncate +width+ 3)))
-	     (+ +top-margin+ (* y +height+) (- (truncate +height+ 7)))
-	     (+ +left-margin+ (* x +width+) +width+ (+ (truncate +width+ 3)))
-	     (+ +top-margin+ (* y +height+) +height+ (truncate +height+ 7)))	     
+	 (y (ghost-y g))
+	 (px (first (translate-point (list x y))))
+	 (py (second (translate-point (list x y)))))	   
+    (select-object hdc (get-stock-object :white-pen))
+    ;; (ellipse hdc 
+    ;; 	     (+ +left-margin+ (* x +width+) (- (truncate +width+ 3)))
+    ;; 	     (+ +top-margin+ (* y +height+) (- (truncate +height+ 7)))
+    ;; 	     (+ +left-margin+ (* x +width+) +width+ (+ (truncate +width+ 3)))
+    ;; 	     (+ +top-margin+ (* y +height+) +height+ (truncate +height+ 7)))
+
+    
+    (polygon hdc
+	     (mapcar (lambda (p)
+		       (list (+ (first p) px (- +width+))
+			       (+ (second p) py (- +height+))))
+		     '((15 5) (16 6) (17 7) (18 7) (20 8) (21 9) (22 10) (23 14) (24 21) (25 25)
+		       (25 25) (22 20) (18 25) (18 20) (12 20) (12 25) (8 20) (5 25)
+		       (5 25) (6 20) (7 14) (8 10) (9 9) (10 8) (12 7) (13 7) (14 6) (15 5))))
+    
     (select-object hdc hold-brush)
-    (delete-object brush)))
+    (delete-object brush)
+
+    (select-object hdc (get-stock-object :white-brush))
+    (ellipse hdc (+ px -2) (+ py -6) (+ px 3) (+ py 2))
+    (ellipse hdc (+ px 4) (+ py -6) (+ px 9) (+ py 2))
+
+    (select-object hdc (get-stock-object :black-brush))
+    (select-object hdc (get-stock-object :black-pen))
+    (cond
+      ((< (ghost-eyes g) 5)
+       (ellipse hdc (+ px -2) (+ py -5) (+ px 0) (+ py 0))
+       (ellipse hdc (+ px 2) (+ py -5) (+ px 4) (+ py 0)))
+      ((< (ghost-eyes g) 10)
+       (ellipse hdc (+ px 2) (+ py -5) (+ px 2) (+ py 0))
+       (ellipse hdc (+ px 7) (+ py -5) (+ px 9) (+ py 0))))
+    (incf (ghost-eyes g))
+    (when (> (ghost-eyes g) 10)
+      (setf (ghost-eyes g) 0))
+    
+    ))
     
 
        

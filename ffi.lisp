@@ -1801,7 +1801,7 @@ Return is keyword specifying button user clicked."
     (:oem5 #xdc) ;; \|
     (:oem6 #xdd) ;; ]}
     (:oem7 #xde) ;; '" on us keyboards
-    (:oem8 #xdf)
+    (:oem8 #xdf) ;; appears to be key ` next to number 1 key 
     (:oem10 #xe2)))
 
 (defun virtual-key-code (name)
