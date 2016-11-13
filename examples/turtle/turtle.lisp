@@ -162,7 +162,7 @@
 (defwndproc turtle-wndproc (hwnd msg wparam lparam)
   (switch msg
     ((const +wm-create+)
-     (destructuring-bind (&key left top right bottom) (get-client-rect hwnd)
+     (destructuring-bind (&key left top (right 0) (bottom 0)) (get-client-rect hwnd)
        (declare (ignore left top))
        (setf *turtle* (make-turtle :x (truncate right 2) :y (truncate bottom 2) :theta 0 :pen-p t))))
     ((const +wm-paint+)
@@ -176,7 +176,7 @@
        
        ;; evaluate all previous and new commands
        (let ((prev (turtle-prev-commands *turtle*)))
-         (destructuring-bind (&key left top right bottom) (get-client-rect hwnd)
+         (destructuring-bind (&key left top (right 0) (bottom 0)) (get-client-rect hwnd)
            (declare (ignore left top))
            (setf (turtle-x *turtle*) (truncate right 2)
                  (turtle-y *turtle*) (truncate bottom 2)
@@ -305,7 +305,7 @@
           ;; clear trext box
           (set-window-text *turtle-edit* "")))
        (3 ;; reset button
-        (destructuring-bind (&key left top right bottom) (get-client-rect hwnd)
+        (destructuring-bind (&key left top (right 0) (bottom 0)) (get-client-rect hwnd)
           (declare (ignore left top))
           (setf *turtle* (make-turtle :x (truncate right 2) :y (truncate bottom 2) :theta 0 :pen-p t)))
         (invalidate-rect *turtle-wnd* nil t)))))

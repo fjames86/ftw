@@ -161,9 +161,11 @@ Copyright (c) Frank James 2016.
            (index 
             (send-message (window-hwnd win)
                           (const +lb-setcursel+)
-                          :wparam index)
+                          index
+			  0)
             (send-message hwnd (const +wm-command+)
-                          :wparam (make-lparam (window-id win) (const +lbn-selchange+)))
+                          (make-lparam (window-id win) (const +lbn-selchange+))
+			  0)
             t)
            (t 
             (message-box :hwnd hwnd
@@ -185,9 +187,11 @@ Copyright (c) Frank James 2016.
       (index 
        (send-message (window-hwnd win)
                      (const +lb-setcursel+)
-                     :wparam index)
+                     index
+		     0)
        (send-message hwnd (const +wm-command+)
-                     :wparam (make-lparam (window-id win) (const +lbn-selchange+)))
+                     (make-lparam (window-id win) (const +lbn-selchange+))
+		     0)
        t)
       (t 
        (message-box :hwnd hwnd
@@ -286,7 +290,7 @@ Copyright (c) Frank James 2016.
     (setf *pkg-list* (mapcar #'package-name (list-all-packages)))
     (dolist (pkg *pkg-list*)
       (with-wide-string (s pkg)
-        (send-message h (const +lb-addstring+) :lparam s))))
+        (send-message h (const +lb-addstring+) 0 s))))
   
   ;; symbol listbox 
   (let ((h (create-window :static
@@ -310,7 +314,7 @@ Copyright (c) Frank James 2016.
     (setf *sym-list* (get-sym-list (first *pkg-list*)))
     (dolist (sym *sym-list*)
       (with-wide-string (s (symbol-name sym))
-        (send-message h (const +lb-addstring+) :lparam s))))
+        (send-message h (const +lb-addstring+) 0 s))))
   
   (let ((h 
          (create-window :static
@@ -327,22 +331,22 @@ Copyright (c) Frank James 2016.
     (when window 
       (case (window-name window)
         (quit-menu-item 
-         (send-message hwnd (const +wm-close+)))
+         (send-message hwnd (const +wm-close+) 0 0))
         (pkg-listbox 
          (when (= (hiword wparam) (const +lbn-selchange+))
-           (let ((sel (send-message (window-hwnd window) (const +lb-getcursel+)))
+           (let ((sel (send-message (window-hwnd window) (const +lb-getcursel+) 0 0))
                  (sym-listbox (window-by-name 'sym-listbox)))
              ;; clear listbox and insert all symbols 
-             (send-message (window-hwnd sym-listbox) (const +lb-resetcontent+))
+             (send-message (window-hwnd sym-listbox) (const +lb-resetcontent+) 0 0)
              
              (setf *sym-list* (get-sym-list (nth sel *pkg-list*)))
              (dolist (sym *sym-list*)
                (with-wide-string (s (symbol-name sym))
-                 (send-message (window-hwnd sym-listbox) (const +lb-addstring+) :lparam s)))
+                 (send-message (window-hwnd sym-listbox) (const +lb-addstring+) 0 s)))
              (invalidate-rect (window-hwnd sym-listbox) nil t))))
         (sym-listbox 
          (when (= (hiword wparam) (const +lbn-selchange+))
-           (let ((sel (send-message (window-hwnd window) (const +lb-getcursel+))))
+           (let ((sel (send-message (window-hwnd window) (const +lb-getcursel+) 0 0)))
              ;; print info about the symbol
              (set-window-text (window-hwnd (window-by-name 'sym-static))
                               (with-output-to-string (s)

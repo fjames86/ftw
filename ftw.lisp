@@ -142,7 +142,7 @@ This allows the programmer to embed images without having to deliver them as sep
   "Send a WM_SETFONT message to the window with the specified font. 
 If FONT is not specified, the default system message font is used.
 " 
-  (send-message hwnd (const +wm-setfont+) :wparam (or font (get-default-font))))
+  (send-message hwnd (const +wm-setfont+) (or font (get-default-font)) 0))
 
 
 (defun generate-icon-resource (filename &optional (stream *standard-output*) name)

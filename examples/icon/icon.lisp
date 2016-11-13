@@ -751,9 +751,7 @@
 	 (set-bk-mode hdc :transparent)
 	 (set-bk-color hdc (get-sys-color :3d-face)))
        
-       (send-message h (const +stm-setimage+)
-		     :wparam 0
-		     :lparam *test3-bitmap*)))
+       (send-message h (const +stm-setimage+) 0 *test3-bitmap*)))
     ((const +wm-destroy+)
      (post-quit-message))
     ((const +wm-paint+)

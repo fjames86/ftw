@@ -280,7 +280,7 @@ MSG ::= uninitialized msg structure, will be filled in on successful return."
   (wparam wparam)
   (lparam lparam))
 
-(defun post-message (hwnd msg &key wparam lparam)
+(defun post-message (hwnd msg wparam lparam)
   "Post the message to the specified hwnd and return immediately. 
 MSG ::= integer specifying the message to post.
 HWND ::= window hwnd to post message to. If not supplied the message is 
@@ -308,7 +308,7 @@ WPARAM, LPARAM ::= additional message data.
   (wparam wparam)
   (lparam lparam))
 
-(defun send-message (hwnd msg &key wparam lparam)
+(defun send-message (hwnd msg wparam lparam)
   "Send a message to a specific window and wait for it to be processed. 
 This function does not return until the message has been processed. 
 MSG ::= message type.
@@ -339,7 +339,7 @@ WPARAM, LPARAM ::= additional message data.
   (timeout :uint32)
   (result :pointer))
 
-(defun send-message-timeout (hwnd msg &key wparam lparam flags timeout)
+(defun send-message-timeout (hwnd msg wparam lparam &key flags timeout)
   "Send message waiting up to timeout milliseconds. 
 HWND ::= window handle or HWND_BROADCAST if nil
 MSG ::= message ID 
@@ -3819,7 +3819,7 @@ Returns hwnd.
   (wparam wparam)
   (lparam lparam))
 
-(defun send-dialog-item-message (hwnd id msg &key wparam lparam)
+(defun send-dialog-item-message (hwnd id msg wparam lparam)
   (%send-dlg-item-message hwnd id msg
 			  (or wparam 0)
 			  (or lparam 0)))

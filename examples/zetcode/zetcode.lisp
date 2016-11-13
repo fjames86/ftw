@@ -191,7 +191,7 @@
                                :caption "Message"
                                :button :ok-cancel)))
          (when (eq ret :ok)
-           (send-message hwnd (const +wm-close+))))))
+           (send-message hwnd (const +wm-close+) 0 0)))))
     ((const +wm-destroy+)
      (post-quit-message)))
   (default-window-proc hwnd msg wparam lparam))
@@ -298,7 +298,7 @@
        (2
         (message-beep :information))
        (3
-        (send-message hwnd (const +wm-close+)))))
+        (send-message hwnd (const +wm-close+) 0 0))))
     ((const +wm-destroy+)
      (post-quit-message)))
   (default-window-proc hwnd msg wparam lparam))
@@ -319,7 +319,7 @@
         (message-beep :information))
        (2 (message-beep :information))
        (3
-        (send-message hwnd (const +wm-close+)))))
+        (send-message hwnd (const +wm-close+) 0 0))))
     ((const +wm-rbuttonup+)
      (let* ((menu (create-popup-menu))
             (rect (client-to-screen hwnd
@@ -380,8 +380,8 @@
              (check-menu-item *cmi-menu* 1 t)))))))
     ((const +wm-size+)
      (send-message *cmi-ghsb* (const +wm-size+)
-                   :wparam wparam
-                   :lparam lparam))
+                   wparam
+                   lparam))
     ((const +wm-destroy+)
      (post-quit-message)))
   (default-window-proc hwnd msg wparam lparam))
@@ -557,8 +557,8 @@ All reason aside, I just can't deny, love the guy.
                                 :menu (make-pointer 1)
                                 :parent hwnd)))
        (send-message hsti (const +stm-setimage+)
-                     :wparam 0
-                     :lparam (pointer-address *staticimage*))))
+                     0
+                     (pointer-address *staticimage*))))
     ((const +wm-destroy+)
      (delete-object *staticimage*)
      (post-quit-message)))
@@ -693,22 +693,24 @@ All reason aside, I just can't deny, love the guy.
                                     :menu (make-pointer 3)))
 
     (send-message *tb-track* (const +tbm-setrange+)
-                  :wparam 1
-                  :lparam (ash 100 16))
+                  1
+                  (ash 100 16))
     (send-message *tb-track* (const +tbm-setpagesize+)
-                  :lparam 10)
+		  0
+                  10)
     (send-message *tb-track* (const +tbm-setticfreq+)
-                  :wparam 10)
-    (send-message *tb-track* (const +tbm-setpos+))
+                  10
+		  0)
+    (send-message *tb-track* (const +tbm-setpos+) 0 0)
     (send-message *tb-track* (const +tbm-setbuddy+)
-                  :wparam 1
-                  :lparam (pointer-address left-label))
+                  1
+                  (pointer-address left-label))
     (send-message *tb-track* (const +tbm-setbuddy+)
-                  :wparam 0
-                  :lparam (pointer-address right-label))))
+                  0
+                  (pointer-address right-label))))
 
 (defun update-trackbar-label ()
-  (let ((pos (send-message *tb-track* (const +tbm-getpos+))))
+  (let ((pos (send-message *tb-track* (const +tbm-getpos+) 0 0)))
     (set-window-text *tb-lbl* (format nil "~A" pos))))
 
 
@@ -740,7 +742,8 @@ All reason aside, I just can't deny, love the guy.
        (with-tool-info (ti hwnd "A main window" (get-window-rect hwnd)
                            :flags (const +ttf-subclass+))
          (send-message hwndtt (const +ttm-addtool+)
-                       :lparam (pointer-address ti)))))
+                       0
+		       (pointer-address ti)))))
     ((const +wm-destroy+)
      (post-quit-message)))
   (default-window-proc hwnd msg wparam lparam))
@@ -775,9 +778,9 @@ All reason aside, I just can't deny, love the guy.
                                         :x 15 :y 60 :width 300 :height 230
                                         :parent hwnd
                                         :menu 3))
-       (send-message updown (const +udm-setbuddy+) :wparam edit)
-       (send-message updown (const +udm-setrange+) :lparam (make-lparam 30 0))
-       (send-message updown (const +udm-setpos32+))))
+       (send-message updown (const +udm-setbuddy+) edit 0)
+       (send-message updown (const +udm-setrange+) 0 (make-lparam 30 0))
+       (send-message updown (const +udm-setpos32+) 0 0)))
     ((const +wm-notify+)
      (let ((nmhdr (foreign-nmhdr (make-pointer lparam))))
        (when (= (getf nmhdr :code) (const +udn-deltapos+))
@@ -822,7 +825,7 @@ All reason aside, I just can't deny, love the guy.
      (let ((nmhdr (foreign-nmhdr (make-pointer lparam))))
        (when (= (getf nmhdr :code) (const +mcn-select+))
          (with-foreign-object (st '(:struct systemtime))
-           (send-message *monthcal* (const +mcm-getcursel+) :lparam st)
+           (send-message *monthcal* (const +mcm-getcursel+) 0 st)
            (let ((ss (foreign-systemtime st)))
              (set-window-text *mc-static*
                               (format nil "~A-~A-~A"
@@ -910,12 +913,12 @@ All reason aside, I just can't deny, love the guy.
                           :parent hwnd))
      (dolist (str *combobox-strings*)
        (with-wide-string (s str)
-         (send-message *combobox* (const +cb-addstring+) :lparam s))))
+         (send-message *combobox* (const +cb-addstring+) 0 s))))
     ((const +wm-command+)
      (when (= (ash (logand wparam #xffff0000) -16) (const +bn-clicked+))
-       (send-message *combobox* (const +cb-showdropdown+) :wparam 1))
+       (send-message *combobox* (const +cb-showdropdown+) 1 0))
      (when (= (ash (logand wparam #xffff0000) -16) (const +cbn-selchange+))
-       (let ((sel (send-message *combobox* (const +cb-getcursel+))))
+       (let ((sel (send-message *combobox* (const +cb-getcursel+) 0 0)))
          (set-window-text *combobox-static* (nth sel *combobox-strings*)))))
     ((const +wm-destroy+)
      (post-quit-message)))
@@ -946,23 +949,23 @@ All reason aside, I just can't deny, love the guy.
                                             :x 85 :y 90 :width 85 :height 25
                                             :parent hwnd
                                             :menu 1))
-     (send-message *progress* (const +pbm-setrange+) :lparam (make-lparam 0 150))
-     (send-message *progress* (const +pbm-setstep+) :wparam 1))
+     (send-message *progress* (const +pbm-setrange+) 0 (make-lparam 0 150))
+     (send-message *progress* (const +pbm-setstep+) 1 0))
     ((const +wm-timer+)
-     (send-message *progress* (const +pbm-stepit+))
+     (send-message *progress* (const +pbm-stepit+) 0 0)
      (incf *progress-counter*)
      (when (= *progress-counter* 150)
        (kill-timer 2 hwnd)
        (with-wide-string (s "Start")
-         (send-message *progress-button* (const +wm-settext+) :lparam s))
+         (send-message *progress-button* (const +wm-settext+) 0 s))
        (setf *progress-counter* 0)))
     ((const +wm-command+)
      (when (zerop *progress-counter*)
        (setf *progress-counter* 1)
-       (send-message *progress* (const +pbm-setpos+))
+       (send-message *progress* (const +pbm-setpos+) 0 0)
        (set-timer :hwnd hwnd :replace-timer 2 :elapse 5)
        (with-wide-string (s "In progress")
-         (send-message *progress-button* (const +wm-settext+) :lparam s))))
+         (send-message *progress-button* (const +wm-settext+) 0 s))))
     ((const +wm-destroy+)
      (kill-timer 2 hwnd)
      (post-quit-message)))
@@ -991,7 +994,7 @@ All reason aside, I just can't deny, love the guy.
                                             :x 250 :y 20 :width 100 :height 25
                                             :parent hwnd
                                             :menu 2))
-     (send-message *tabcontrol-edit* (const +em-setlimittext+) :wparam 15)
+     (send-message *tabcontrol-edit* (const +em-setlimittext+) 15 0)
      (create-window :button
                     :window-name "Add"
                     :styles (logior-consts +ws-child+ +ws-visible+ +bs-pushbutton+)
@@ -1015,19 +1018,19 @@ All reason aside, I just can't deny, love the guy.
        (3 ;; add 
         (let ((txt (get-window-text *tabcontrol-edit*)))
           (unless (zerop (length txt))
-            (let ((count (send-message *tabcontrol* (const +tcm-getitemcount+))))
+            (let ((count (send-message *tabcontrol* (const +tcm-getitemcount+) 0 0)))
               (with-foreign-object (tie '(:struct tcitem))
                 (with-wide-string (ts txt)
                   (tcitem-foreign tie :mask (const +tcif-text+) :text ts)
                   (send-message *tabcontrol* (const +tcm-insertitem+)
-                                :wparam count
-                                :lparam tie)))))))
+                                count
+                                tie)))))))
        (4 ;; delete
-        (let ((id (send-message *tabcontrol* (const +tcm-getcursel+))))
+        (let ((id (send-message *tabcontrol* (const +tcm-getcursel+) 0 0)))
           (unless (= id -1)
-            (send-message *tabcontrol* (const +tcm-deleteitem+) :lparam id))))
+            (send-message *tabcontrol* (const +tcm-deleteitem+) 0 id))))
        (5 ;; clear
-        (send-message *tabcontrol* (const +tcm-deleteallitems+)))))
+        (send-message *tabcontrol* (const +tcm-deleteallitems+) 0 0))))
     ((const +wm-destroy+)
      (post-quit-message)))
   (default-window-proc hwnd msg wparam lparam))
@@ -1061,11 +1064,11 @@ All reason aside, I just can't deny, love the guy.
                                            :menu 2))
      (dolist (f *listbox-friends*)
        (with-wide-string (s (first f))
-         (send-message *listbox* (const +lb-addstring+) :lparam s))))
+         (send-message *listbox* (const +lb-addstring+) 0 s))))
     ((const +wm-command+)
      (when (= (logand wparam #xffff) 1)
        (when (= (ash (logand wparam #xffff0000) -16) (const +lbn-selchange+))
-         (let ((sel (send-message *listbox* (const +lb-getcursel+))))
+         (let ((sel (send-message *listbox* (const +lb-getcursel+) 0 0)))
            (set-window-text *listbox-static*
                             (format nil "Job: ~A~%Age: ~A"
                                     (second (nth sel *listbox-friends*))
@@ -1155,15 +1158,15 @@ All reason aside, I just can't deny, love the guy.
                                           :x 40 :y 25 :width 150 :height 25
                                           :parent hwnd
                                           :menu 2))
-     (send-message *burning-track* (const +tbm-setrange+) :wparam 1 :lparam (make-long 0 750))
-     (send-message *burning-track* (const +tbm-setpagesize+) :lparam 20)
-     (send-message *burning-track* (const +tbm-setticfreq+) :wparam 20)
-     (send-message *burning-track* (const +tbm-setpos+) :wparam 1 :lparam 150))
+     (send-message *burning-track* (const +tbm-setrange+) 1 (make-long 0 750))
+     (send-message *burning-track* (const +tbm-setpagesize+) 0 20)
+     (send-message *burning-track* (const +tbm-setticfreq+) 20 0)
+     (send-message *burning-track* (const +tbm-setpos+) 1 150))
     ((const +wm-size+)
      (set-window-pos *burning* nil 0 (- (hiword lparam) 30) (loword lparam) 30
                      (const +swp-nozorder+)))
     ((const +wm-hscroll+)
-     (setf *burning-pos* (send-message *burning-track* (const +tbm-getpos+)))
+     (setf *burning-pos* (send-message *burning-track* (const +tbm-getpos+) 0 0))
      (invalidate-rect *burning* nil t))
     ((const +wm-destroy+)
      (post-quit-message)))
