@@ -83,9 +83,6 @@ the same inputs. The difference is that modal dialogs do not return control to t
 the dialog has been closed whereas modeless dialogs return control immediately and run alongside the original
 window. 
 
-
-
-
 # 4. Examples
 Various examples are provided which show various levels of abstractions and a
 good showcase of how to use it.
@@ -133,8 +130,6 @@ Should work with any Lisp implementation which provides FFI callbacks
 ## 5.1 TODO
  - [ ] Try with CCL, Lispworks etc.
  - [ ] Better error handling.
-
-
 
 
 Licensed under the terms of the MIT license.
