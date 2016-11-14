@@ -82,8 +82,23 @@
 
 ;; --------------- Print --------------
 
+(defwndproc print-wndproc (hwnd msg wparam lparam)
+  (switch msg
+    (ftw::+wm-keydown+
+     (let ((pinfo (print-dialog hwnd
+				:min-page 1
+				:max-page 100
+				:page-ranges '((1 3) (2 4))
+				:flags (logior))))
+       (message-box :hwnd hwnd
+		    :text (format nil "~S~%" pinfo)
+		    :caption "Print dialog")))
+    (ftw::+wm-destroy+
+     (post-quit-message)))
+  (default-window-proc hwnd msg wparam lparam))
+
 (defun print-test ()
-  (print-dialog))
+  (default-message-loop 'print-wndproc))
 
 ;; ------------------ Page setup ----------
 

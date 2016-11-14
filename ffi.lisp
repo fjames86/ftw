@@ -4963,20 +4963,7 @@ that the user chose. In addition the driver, printer and output names are return
             (foreign-slot-value pd '(:struct pdex) 'hwnd)
             hwnd
             (foreign-slot-value pd '(:struct pdex) 'flags)
-            (mergeflags flags
-                        (:all-pages #x0)
-                        (:collate #x10)
-                        (:disable-print-to-file #x80000)
-                        (:hide-print-to-file #x00100000)
-                        (:no-network-button #x00200000)
-                        (:no-page-nums #x8)
-                        (:no-selection #x4)
-                        (:no-warning #x80)
-                        (:page-nums #x2)
-                        (:print-setup #x40)
-                        (:print-to-file #x20)
-                        (:selection #x1)
-                        (:show-help #x800))
+	    (or flags 0)
             (foreign-slot-value pd '(:struct pdex) 'npageranges)
             (length page-ranges)
             (foreign-slot-value pd '(:struct pdex) 'maxpageranges)
@@ -4984,11 +4971,11 @@ that the user chose. In addition the driver, printer and output names are return
             (foreign-slot-value pd '(:struct pdex) 'pageranges)
             prbuffer
             (foreign-slot-value pd '(:struct pdex) 'min-page)
-            (or min-page 0)
+            (or min-page 1)
             (foreign-slot-value pd '(:struct pdex) 'max-page)
-            (or max-page 0)
+            (or max-page #xffffffff)
             (foreign-slot-value pd '(:struct pdex) 'ncopies)
-            (or ncopies 0)
+            (or ncopies 1)
             (foreign-slot-value pd '(:struct pdex) 'start-page)
             #xffffffff)
 
@@ -5043,7 +5030,13 @@ that the user chose. In addition the driver, printer and output names are return
                    :ncopies (foreign-slot-value pd '(:struct pdex) 'ncopies)
                    :driver driver
                    :device device
-                   :output output))))))))
+                   :output output
+		   :flags (foreign-slot-value pd '(:struct pdex) 'flags)
+		   :result (ecase (foreign-slot-value pd '(:struct pdex) 'result-action)
+			     (0 :cancel)
+			     (1 :print)
+			     (2 :apply))
+		   :hdc (foreign-slot-value pd '(:struct pdex) 'hdc)))))))))
 
 
 
