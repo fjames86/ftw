@@ -3293,6 +3293,25 @@ of this function so that users preferences are presented back to them.
           (:brush (foreign-logbrush buffer))
           (:font (foreign-logfont buffer)))))))
 
+
+(defcfun (%create-dc "CreateDCW" :convention :stdcall)
+    :pointer
+  (driver :pointer)
+  (device :pointer)
+  (output :pointer)
+  (initdata :pointer))
+
+(defun create-dc (device-name)
+  (with-wide-string (s device-name)
+    ;; most of the args should be nulls which makes things easier 
+    (let ((ret (%create-dc (null-pointer)
+                           s
+                           (null-pointer)
+                           (null-pointer))))
+      (if (null-pointer-p ret)
+          (get-last-error)
+          ret))))
+
 (defcfun (%delete-dc "DeleteDC" :convention :stdcall)
     :boolean
   (hdc :pointer))
@@ -5138,13 +5157,6 @@ that the user chose. In addition the driver, printer and output names are return
         (when res 
           (mem-aref handle :pointer))))))
 
-;; (defcstruct docinfo
-;;   (size :int32)
-;;   (name :pointer)
-;;   (output :pointer)
-;;   (datatype :pointer)
-;;   (type :uint32))
-
 (defcstruct docinfo1
   (name :pointer)
   (output :pointer)
@@ -5778,3 +5790,129 @@ on what those integers can be.
      (unwind-protect (progn ,@body)
        (delete-emf ,var))))
 
+
+(defcfun (%enum-display-devices "EnumDisplayDevicesW" :convention :stdcall)
+    :boolean
+  (device :pointer)
+  (devnum :uint32)
+  (lp :pointer)
+  (flags :uint32))
+
+(defcstruct displaydevice
+  (cb :uint32)
+  (name :uint16 :count 32)
+  (string :uint16 :count 128)
+  (flags :uint32)
+  (id :uint16 :count 128)
+  (key :uint16 :count 128))
+
+(defun foreign-displaydevice (p)
+  (list :name (foreign-string-to-lisp (foreign-slot-pointer p '(:struct displaydevice) 'name)
+                                      :encoding :ucs-2le)
+        :string (foreign-string-to-lisp (foreign-slot-pointer p '(:struct displaydevice) 'string)
+                                        :encoding :ucs-2le)
+        :flags (foreign-slot-value p '(:struct displaydevice) 'flags)
+        :id (foreign-string-to-lisp (foreign-slot-pointer p '(:struct displaydevice) 'id)
+                                    :encoding :ucs-2le)
+        :key (foreign-string-to-lisp (foreign-slot-pointer p '(:struct displaydevice) 'key)
+                                     :encoding :ucs-2le)))
+
+(defun enum-display-devices ()
+  (with-foreign-object (lp '(:struct displaydevice))
+    (do ((devices nil)
+         (i 0 (1+ i))
+         (done nil))
+        (done devices)
+      (setf (foreign-slot-value lp '(:struct displaydevice) 'cb)
+            (foreign-type-size '(:struct displaydevice)))
+      (let ((res (%enum-display-devices (null-pointer)
+                                        i
+                                        lp
+                                        0)))
+        (cond
+          (res
+           (push (foreign-displaydevice lp) devices))
+          (t
+           (setf done t)))))))
+
+
+;; (defcfun (%enum-print-processor-datatypes "EnumPrintProcessorDatatypesW" :conventioN :stdcall)
+;;     :boolean
+;;   (name :pointer)
+;;   (processor-name :pointer)
+;;   (level :uint32)
+;;   (datatypes :pointer)
+;;   (count :uint32)
+;;   (needed :pointer)
+;;   (returned :pointer))
+
+;; (defun enum-print-processor-datatypes (printername &optional server)
+;;   (with-wide-string (pname printername)
+;;     (with-wide-string (sname (or server ""))
+;;       (with-foreign-objects ((buffer :uint8 (* 32 1024))
+;;                              (needed :uint32)
+;;                              (returned :uint32))        
+;;         (let ((ret (%enum-print-processor-datatypes (if server sname (null-pointer))
+;;                                                     pname
+;;                                                     1
+;;                                                     buffer
+;;                                                     (* 32 1024)
+;;                                                     needed
+;;                                                     returned)))
+;;           (format t "ret ~S needed ~S returned ~S~%"
+;;                   ret (mem-aref needed :uint32) (mem-aref returned :uint32))
+;;           (when ret
+;;             (do ((i 0 (1+ i))
+;;                  (datatypes nil))
+;;                 ((= i (mem-aref returned :uint32))
+;;                  datatypes)
+;;               (let ((p (mem-aref buffer :pointer i)))
+;;                 (push (foreign-string-to-lisp p :encoding :ucs-2le)
+;;                       datatypes)))))))))
+  
+
+(defcstruct docinfo
+  (size :int32)
+  (name :pointer)
+  (output :pointer)
+  (datatype :pointer)
+  (type :uint32))
+
+(defcfun (%start-doc "StartDocW" :convention :stdcall)
+    :int32
+  (hdc :pointer)
+  (lp :pointer))
+
+(defun start-doc (hdc docname &optional datatype)
+  (with-wide-string (sdocname docname)
+    (with-wide-string (sdatatype (or datatype ""))
+      (with-foreign-object (lp '(:struct docinfo))
+        (memset lp (foreign-type-size '(:struct docinfo)))
+        (setf (foreign-slot-value lp '(:struct docinfo) 'size)
+              (foreign-type-size '(:struct docinfo))
+              (foreign-slot-value lp '(:struct docinfo) 'name)
+              sdocname
+              (foreign-slot-value lp '(:struct docinfo) 'datatype)
+              (if datatype sdatatype (null-pointer)))
+        (%start-doc hdc lp)))))
+              
+(defcfun (%start-page "StartPage" :convention :stdcall)
+    :int32
+  (hdc :pointer))
+
+(defun start-page (hdc)
+  (%start-page hdc))
+
+(defcfun (%end-page "EndPage" :convention :stdcall)
+    :int32
+  (hdc :pointer))
+
+(defun end-page (hdc)
+  (%end-page hdc))
+
+(defcfun (%end-doc "EndDoc" :convention :stdcall)
+    :int32
+  (hdc :pointer))
+
+(defun end-doc (hdc)
+  (%end-doc hdc))

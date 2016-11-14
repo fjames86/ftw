@@ -327,3 +327,22 @@ when drawing lots of small items on the screen."
 			:raster-op :srccopy)	     
 	       (select-object ,var ,gold)
 	       (delete-object ,gbm))))))))
+
+
+(defmacro with-printer-dc ((var device-name &optional document-name) &body body)
+  "Evaluate the body in a context with VAR bound to an HDC for the printer named by DEVICE-NAME. 
+The body should consist of a series of PRINT-PAGE forms. Any other forms in body are evaulated but 
+do not contribute to the page to be printed. 
+
+For examples see examples/printer.
+" 
+  `(let ((,var (create-dc ,device-name)))
+     (unwind-protect
+          (macrolet ((print-page (&body body)
+                       `(progn (start-page ,',var)
+                               ,@body
+                               (end-page ,',var))))
+            (start-doc ,var ,(or document-name "Document"))
+            ,@body
+            (end-doc ,var))
+       (delete-dc ,var))))

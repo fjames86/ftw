@@ -219,6 +219,7 @@
 	   #:logfont-pitch-and-family
 	   #:logfont-name 
 	   #:get-object
+       #:create-dc 
 	   #:delete-dc
 	   #:nonclientmetrics
 	   #:nonclientmetrics-size
@@ -373,6 +374,11 @@
        #:get-emf-bits
        #:set-emf-bits
        #:with-emf-from-bits
+       #:enum-display-devices
+       #:start-doc
+       #:start-page
+       #:end-doc
+       #:end-page
        
 	   ;; ftw.lisp provides some extra useful utilities 
 	   #:set-accelerator-table 
@@ -389,6 +395,8 @@
 	   #:add-menu-bar
 	   #:set-window-to-center 
 	   #:with-double-buffering
+       #:with-printer-dc
+       #:print-page        
 	   ))
 
 
