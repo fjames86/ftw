@@ -4907,113 +4907,143 @@ the user chose.
                 :device device
                 :output output))))))
 
-(defcfun (%print-dlg "PrintDlgW" :convention :stdcall)
-    :boolean
+(defcfun (%print-dlgex "PrintDlgExW" :convention :stdcall)
+    :uint32
   (lp :pointer))
 
-(defcstruct pd
+(defcstruct pdex
   (size :uint32)
   (hwnd :pointer)
   (dev-mode :pointer)
   (dev-names :pointer)
   (hdc :pointer)
   (flags :uint32)
-  (from-page :uint16)
-  (to-page :uint16)
-  (min-page :uint16)
-  (max-page :uint16)
-  (ncopies :uint16)
+  (flags2 :uint32)
+  (ex-flags :uint32)
+  (npageranges :uint32)
+  (maxpageranges :uint32)
+  (pageranges :pointer)
+  (min-page :uint32)
+  (max-page :uint32)
+  (ncopies :uint32)
   (instance :pointer)
-  (cust-data lparam)
-  (print-hook :pointer)
-  (setup-hook :pointer)
-  (print-template-name :pointer)
-  (setup-template-name :pointer)
-  (print-template :pointer)
-  (setup-template :pointer))
+  (template-name :pointer)
+  (callback :pointer)
+  (npropertypages :uint32)
+  (propertypages :pointer)
+  (start-page :uint32)
+  (result-action :uint32))
 
-(defun print-dialog (&key hwnd flags from-page to-page min-page max-page ncopies)
-  "Show the print dialog PrintDlg(). See MSDN for more documentation.
+(defcstruct printpagerange
+  (from :uint32)
+  (to :uint32))
+
+(defun print-dialog (hwnd &key flags min-page max-page ncopies page-ranges)
+  "Show the print dialog PrintDlgEx(). See MSDN for more documentation.
 
 Returns a plist containing the values for from-page, to-page, min-page, max-page, ncopies
 that the user chose. In addition the driver, printer and output names are returned if availble.
 "
   
-  (with-foreign-object (pd '(:struct pd))
-    (memset pd (foreign-type-size '(:struct pd)))
+  (with-foreign-object (pd '(:struct pdex))
+    (with-foreign-object (prbuffer '(:struct printpagerange) 32)
+      (memset pd (foreign-type-size '(:struct pdex)))
 
-    (setf (foreign-slot-value pd '(:struct pd) 'size)
-          (foreign-type-size '(:struct pd))
-          (foreign-slot-value pd '(:struct pd) 'hwnd)
-          (or hwnd (null-pointer))
-          (foreign-slot-value pd '(:struct pd) 'flags)
-          (mergeflags flags
-                      (:all-pages #x0)
-                      (:collate #x10)
-                      (:disable-print-to-file #x80000)
-                      (:hide-print-to-file #x00100000)
-                      (:no-network-button #x00200000)
-                      (:no-page-nums #x8)
-                      (:no-selection #x4)
-                      (:no-warning #x80)
-                      (:page-nums #x2)
-                      (:print-setup #x40)
-                      (:print-to-file #x20)
-                      (:selection #x1)
-                      (:show-help #x800))
-          (foreign-slot-value pd '(:struct pd) 'from-page)
-          (or from-page 0)
-          (foreign-slot-value pd '(:struct pd) 'to-page)
-          (or to-page 0)
-          (foreign-slot-value pd '(:struct pd) 'min-page)
-          (or min-page 0)
-          (foreign-slot-value pd '(:struct pd) 'max-page)
-          (or max-page 0)
-          (foreign-slot-value pd '(:struct pd) 'ncopies)
-          (or ncopies 0))
+      (do ((i 0 (1+ i))
+           (pr page-ranges (cdr pr)))
+          ((or (null pr) (= i 32)))
+        (let ((p (mem-aptr prbuffer '(:struct printpagerange) i)))
+          (setf (foreign-slot-value p '(:struct printpagerange) 'from)
+                (first (car pr))
+                (foreign-slot-value p '(:struct printpagerange) 'to)
+                (second (car pr)))))
+      
+      (setf (foreign-slot-value pd '(:struct pdex) 'size)
+            (foreign-type-size '(:struct pdex))
+            (foreign-slot-value pd '(:struct pdex) 'hwnd)
+            hwnd
+            (foreign-slot-value pd '(:struct pdex) 'flags)
+            (mergeflags flags
+                        (:all-pages #x0)
+                        (:collate #x10)
+                        (:disable-print-to-file #x80000)
+                        (:hide-print-to-file #x00100000)
+                        (:no-network-button #x00200000)
+                        (:no-page-nums #x8)
+                        (:no-selection #x4)
+                        (:no-warning #x80)
+                        (:page-nums #x2)
+                        (:print-setup #x40)
+                        (:print-to-file #x20)
+                        (:selection #x1)
+                        (:show-help #x800))
+            (foreign-slot-value pd '(:struct pdex) 'npageranges)
+            (length page-ranges)
+            (foreign-slot-value pd '(:struct pdex) 'maxpageranges)
+            32
+            (foreign-slot-value pd '(:struct pdex) 'pageranges)
+            prbuffer
+            (foreign-slot-value pd '(:struct pdex) 'min-page)
+            (or min-page 0)
+            (foreign-slot-value pd '(:struct pdex) 'max-page)
+            (or max-page 0)
+            (foreign-slot-value pd '(:struct pdex) 'ncopies)
+            (or ncopies 0)
+            (foreign-slot-value pd '(:struct pdex) 'start-page)
+            #xffffffff)
 
-    (let ((res (%print-dlg pd)))
-      (when res
-        (let ((dev-mode (foreign-slot-value pd '(:struct pd) 'dev-mode))
-              (dev-names (foreign-slot-value pd '(:struct pd) 'dev-names))
-              (driver nil)
-              (device nil)
-              (output nil))
-          (unless (null-pointer-p dev-names)
-            (let ((dev-names-p (global-lock dev-names)))
-              (setf driver
-                    (foreign-string-to-lisp (inc-pointer dev-names-p
-                                                         (* (foreign-slot-value dev-names-p
-                                                                                '(:struct devnames)
-                                                                                'driver-offset)
-                                                            2))
-                                            :encoding :ucs-2le)
-                    device
-                    (foreign-string-to-lisp (inc-pointer dev-names-p
-                                                         (* (foreign-slot-value dev-names-p
-                                                                                '(:struct devnames)
-                                                                                'device-offset)
-                                                            2))
-                                            :encoding :ucs-2le)
-                    output
-                    (foreign-string-to-lisp (inc-pointer dev-names-p
-                                                         (* (foreign-slot-value dev-names-p
-                                                                                '(:struct devnames)
-                                                                                'output-offset)
-                                                            2))
-                                            :encoding :ucs-2le)))
-            (global-unlock dev-names)
-            (global-free dev-names)
-            (global-free dev-mode))
-
-          (list :from-page (foreign-slot-value pd '(:struct pd) 'from-page)
-                :to-page (foreign-slot-value pd '(:struct pd) 'to-page)
-                :min-page (foreign-slot-value pd '(:struct pd) 'min-page)
-                :max-page (foreign-slot-value pd '(:struct pd) 'max-page)
-                :ncopies (foreign-slot-value pd '(:struct pd) 'ncopies)
-                :driver driver
-                :device device
-                :output output))))))
+      (let ((res (%print-dlgex pd)))
+        (unless (zerop res)
+          (get-last-error))
+        (cond
+          ((zerop (foreign-slot-value pd '(:struct pdex) 'result-action))
+           ;; cancel
+           nil)
+          (t
+           ;; ok or apply              
+           (let ((dev-mode (foreign-slot-value pd '(:struct pdex) 'dev-mode))
+                 (dev-names (foreign-slot-value pd '(:struct pdex) 'dev-names))
+                 (driver nil)
+                 (device nil)
+                 (output nil))
+             (unless (null-pointer-p dev-names)
+               (let ((dev-names-p (global-lock dev-names)))
+                 (setf driver
+                       (foreign-string-to-lisp (inc-pointer dev-names-p
+                                                            (* (foreign-slot-value dev-names-p
+                                                                                   '(:struct devnames)
+                                                                                   'driver-offset)
+                                                               2))
+                                               :encoding :ucs-2le)
+                       device
+                       (foreign-string-to-lisp (inc-pointer dev-names-p
+                                                            (* (foreign-slot-value dev-names-p
+                                                                                   '(:struct devnames)
+                                                                                   'device-offset)
+                                                               2))
+                                               :encoding :ucs-2le)
+                       output
+                       (foreign-string-to-lisp (inc-pointer dev-names-p
+                                                            (* (foreign-slot-value dev-names-p
+                                                                                   '(:struct devnames)
+                                                                                   'output-offset)
+                                                               2))
+                                               :encoding :ucs-2le)))
+               (global-unlock dev-names)
+               (global-free dev-names)
+               (global-free dev-mode))
+             
+             (list :page-ranges
+                   (loop :for i :below (foreign-slot-value pd '(:struct pdex) 'npageranges)
+                      :collect (let ((p (mem-aptr prbuffer '(:struct printpagerange) i)))
+                                 (list (foreign-slot-value p '(:struct printpagerange) 'from)
+                                       (foreign-slot-value p '(:struct printpagerange) 'to))))
+                   :min-page (foreign-slot-value pd '(:struct pdex) 'min-page)
+                   :max-page (foreign-slot-value pd '(:struct pdex) 'max-page)
+                   :ncopies (foreign-slot-value pd '(:struct pdex) 'ncopies)
+                   :driver driver
+                   :device device
+                   :output output))))))))
 
 
 
