@@ -3430,7 +3430,7 @@ of this function so that users preferences are presented back to them.
 (defmacro with-dc ((var &optional hwnd) &body body)
   (let ((ghwnd (gensym)))
     `(let* ((,ghwnd ,hwnd)
-	    (,var (get-dc ,hwnd)))
+	    (,var (get-dc ,ghwnd)))
        (unwind-protect (progn ,@body)
 	 (release-dc ,var ,ghwnd)))))
 
