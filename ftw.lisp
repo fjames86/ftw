@@ -335,7 +335,7 @@ The body should consist of a series of PRINT-PAGE forms. Any other forms in body
 do not contribute to the page to be printed. 
 
 For examples see examples/printer.
-" 
+"
   `(let ((,var (create-dc ,device-name)))
      (unwind-protect
           (macrolet ((print-page (&body body)

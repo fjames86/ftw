@@ -89,7 +89,7 @@
 				:min-page 1
 				:max-page 100
 				:page-ranges '((1 3) (2 4))
-				:flags (logior))))
+				:flags (logior ftw::+pd-returndc+))))
        (message-box :hwnd hwnd
 		    :text (format nil "~S~%" pinfo)
 		    :caption "Print dialog")))
