@@ -7,7 +7,7 @@ APIs for writing native Windows GUIs in Common Lisp.
 
 The intention is to be able to write the same sort of codes in Lisp as you
 would if writing normal Win32 GUIs in C. This also opens the possibility
-for writing other more generate graphical applications like games.
+for writing other more general graphical applications like games.
 
 # 2. Functions
 All underlying Win32 functions have Lisp equivalents, mostly with CamelCase replaced with the Lisp style kebab-case.
@@ -22,12 +22,7 @@ Several functions accept IDs for so called "resources", which normally get linke
 in with the object code by the resource compiler (when writing in C). For
 obviously reasons this is not possible when using Lisp. 
 
-## 2.2 Lispy CLOS based interface
-It would be nice to have a more Lispy CLOS based interface where you
-can define classes, methods etc. This should be provided by a higher level
-library and does not belong here.
-
-## 2.3 Other platforms
+## 2.2 Other platforms
 This is a Windows only library and does not work on any other platform.
 It is not a cross platform GUI library.
 
@@ -67,9 +62,9 @@ The advantage of pregenerating code and putting that into your project is you do
 external images which need to be loaded at runtime - you need only compile your code. 
 
 To e.g. embed an icon into your project do the following: 
-1. Get your icon file e.g. by drawing it in gimp. make sure it is 32x32 pixels and exported as 32-bit
+ 1. Get your icon file e.g. by drawing it in gimp. make sure it is 32x32 pixels and exported as 32-bit
 with 8 bits each of alpha and rgb. 
-2. Run `(ftw:generate-icon-resource "myicon.ico")`
+ 2. Run `(ftw:generate-icon-resource "myicon.ico")`
 This will print out the code you need to paste into your project. 
 
 See the minesweeper example of how you can have a custom icon without shipping the file separately. 
@@ -103,14 +98,14 @@ are used as shortcuts for menu items.
 Ctrl+F brings up a Find dialog to search for a given symbol. Ctrl+Q quits.
 
 ## 4.3 Dragdrop
-This shows how to support drag and drop functionality by handling the WM_DROPFILES message.
+This shows how to support drag and drop functionality by handling the `WM_DROPFILES` message.
 
 ## 4.4 Pong
 This is a small and not very well written example of how you might go about
 writing games. It's just a silly little pong game but shows the basic idea.
 
 ## 4.5 Icon
-Shows how to add icons and other graphics
+Shows how to add icons and other graphics.
 
 ## 4.6 Minesweeper
 Simple minesweeper game.
@@ -119,7 +114,10 @@ Simple minesweeper game.
 Simple tetris clone.
 
 ## 4.8 Macroman
-Simple pacman clone.
+Simple pacman clone. Shows how to reduce flicker by double buffering. 
+
+## 4.9 Scrollbar 
+How to add scrollbars and response to scoll messages. 
 
 # 5. Notes
 Requires CFFI. Developed on Windows 8.1 and Windows 7 using SBCL 
