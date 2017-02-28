@@ -397,6 +397,13 @@
 	   #:with-double-buffering
        #:with-printer-dc
        #:print-page        
+
+       #:treeview-insert-item
+       #:treeview-delete-item
+       #:treeview-delete-all-items
+       #:treeview-expand
+       #:treeview-select-drop-target
+       #:treeview-get-edit-control
 	   ))
 
 

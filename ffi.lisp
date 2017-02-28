@@ -5939,3 +5939,81 @@ on what those integers can be.
 
 (defun end-doc (hdc)
   (%end-doc hdc))
+
+
+(defcstruct tvitemex 
+  (mask :uint32)
+  (item :pointer)
+  (state :uint32)
+  (state-mask :uint32)
+  (text :pointer)
+  (text-count :int32)
+  (image :int32)
+  (selected-image :int32)
+  (children-count :int32)
+  (lparam lparam)
+  (integral :int32)
+  (state-ex :uint32)
+  (hwnd :pointer)
+  (expanded-image :int32)
+  (reserved :int32))
+
+(defcstruct tv-insertstruct 
+  (parent :pointer)
+  (after :pointer)
+  (item (:struct tvitemex)))
+
+(defun treeview-insert-item (hwnd text &key insert-after parent)
+  (with-foreign-object (tv '(:struct tv-insertstruct))
+    (with-wide-string ((s slen) text)
+      (memset tv (foreign-type-size '(:struct tv-insertstruct)) 0)
+      (when insert-after 
+	(setf (foreign-slot-value tv '(:struct tv-insertstruct) 'after)
+	      (cond
+		((symbolp insert-after)
+		 (make-pointer 
+		  (ecase insert-after 
+		    (:root +tvi-root+)
+		    (:first +tvi-first+)
+		    (:last +tvi-last+)
+		    (:sort +tvi-sort+))))
+		(insert-after insert-after))))
+      (when parent 
+	(setf (foreign-slot-value tv '(:struct tv-insertstruct) 'parent)
+	      parent))
+	    
+      (let ((tvi (foreign-slot-pointer tv '(:struct tv-insertstruct) 'item)))
+	(setf (foreign-slot-value tvi '(:struct tvitemex) 'text) s
+	      (foreign-slot-value tvi '(:struct tvitemex) 'text-count) slen
+	      (foreign-slot-value tvi '(:struct tvitemex) 'mask) +tvif-text+)
+	;; set other fields
+	)
+      (let ((h (send-message hwnd +tvm-insertitemw+ 0 tv)))
+	(unless (zerop h)
+	  (make-pointer h))))))
+
+(defun treeview-delete-item (hwnd htreeitem)
+  (send-message hwnd +tvm-deleteitem+ 0 htreeitem))
+
+(defun treeview-delete-all-items (hwnd)
+  (send-message hwnd +tvm-deleteitem+ 0 +tvi-root+))
+
+(defun treeview-expand (hwnd htreeitem &optional cmd)
+  (send-message hwnd +tvm-expand+ 
+		(ecase (or cmd :expand)
+		  (:collapse +tve-collapse+)
+		  (:collapse-reset +tve-collapsereset+)
+		  (:expand +tve-expand+)
+		  (:expand-partial +tve-expandpartial+)
+		  (:toggle +tve-toggle+))
+		htreeitem))
+
+(defun treeview-select (hwnd htreeitem cmd)
+  (send-message hwnd +tvm-selectitem+ cmd htreeitem))
+
+(defun treeview-select-drop-target (hwnd htreeitem)
+  (treeview-select hwnd htreeitem +tvgn-drophilite+))
+
+(defun treeview-get-edit-control (hwnd)
+  (send-message hwnd +tvm-geteditcontrol+ 0 0))
+
