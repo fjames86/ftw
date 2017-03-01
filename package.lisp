@@ -404,6 +404,9 @@
        #:treeview-expand
        #:treeview-select-drop-target
        #:treeview-get-edit-control
+       #:treeview-set-imagelist 
+       #:imagelist-create
+       #:imagelist-add 
 	   ))
 
 

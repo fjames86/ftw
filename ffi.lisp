@@ -5940,7 +5940,6 @@ on what those integers can be.
 (defun end-doc (hdc)
   (%end-doc hdc))
 
-
 (defcstruct tvitemex 
   (mask :uint32)
   (item :pointer)
@@ -5963,7 +5962,7 @@ on what those integers can be.
   (after :pointer)
   (item (:struct tvitemex)))
 
-(defun treeview-insert-item (hwnd text &key insert-after parent)
+(defun treeview-insert-item (hwnd text &key insert-after parent image)
   (with-foreign-object (tv '(:struct tv-insertstruct))
     (with-wide-string ((s slen) text)
       (memset tv (foreign-type-size '(:struct tv-insertstruct)) 0)
@@ -5986,8 +5985,16 @@ on what those integers can be.
 	(setf (foreign-slot-value tvi '(:struct tvitemex) 'text) s
 	      (foreign-slot-value tvi '(:struct tvitemex) 'text-count) slen
 	      (foreign-slot-value tvi '(:struct tvitemex) 'mask) +tvif-text+)
-	;; set other fields
-	)
+	(when image 
+	  (setf (foreign-slot-value tvi '(:struct tvitemex) 'image) image
+		(foreign-slot-value tvi '(:struct tvitemex) 'mask)
+		(logior (foreign-slot-value tvi '(:struct tvitemex) 'mask) +tvif-image+)))
+	  
+	(when selected-image 
+	  (setf (foreign-slot-value tvi '(:struct tvitemex) 'image) selected-image
+		(foreign-slot-value tvi '(:struct tvitemex) 'mask)
+		(logior (foreign-slot-value tvi '(:struct tvitemex) 'mask) +tvif-selectedimage+))))
+
       (let ((h (send-message hwnd +tvm-insertitemw+ 0 tv)))
 	(unless (zerop h)
 	  (make-pointer h))))))
@@ -6016,4 +6023,25 @@ on what those integers can be.
 
 (defun treeview-get-edit-control (hwnd)
   (send-message hwnd +tvm-geteditcontrol+ 0 0))
+
+(defun treeview-set-imagelist (hwnd imagelist) 
+  (send-message hwnd +tvm-setimagelist+ +tvsil-normal+ imagelist))
+
+(defcfun (%imagelist-create "ImageList_Create") :pointer
+  (cx :int32)
+  (cy :int32)
+  (flags :uint32)
+  (cinitial :int32)
+  (cgrow :int32))
+
+(defun imagelist-create (cx cy &optional cinitial cgrow)
+  (%imagelist-create cx cy 0 (or cinitial 1) (or cgrow 1)))
+
+(defcfun (%imagelist-add "ImageList_Add") :int32
+  (il :pointer)
+  (bitmap :pointer)
+  (mask :pointer))
+
+(defun imagelist-add (imagelist bitmap &optional mask)
+  (%imagelist-add imagelist bitmap (or mask (null-pointer))))
 
