@@ -5962,7 +5962,7 @@ on what those integers can be.
   (after :pointer)
   (item (:struct tvitemex)))
 
-(defun treeview-insert-item (hwnd text &key insert-after parent image)
+(defun treeview-insert-item (hwnd text &key insert-after parent image selected-image)
   (with-foreign-object (tv '(:struct tv-insertstruct))
     (with-wide-string ((s slen) text)
       (memset tv (foreign-type-size '(:struct tv-insertstruct)) 0)
