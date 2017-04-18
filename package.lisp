@@ -406,7 +406,11 @@
        #:treeview-get-edit-control
        #:treeview-set-imagelist 
        #:imagelist-create
-       #:imagelist-add 
+       #:imagelist-add
+
+       #:create-static
+       #:create-edit
+       
 	   ))
 
 

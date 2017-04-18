@@ -347,3 +347,27 @@ For examples see examples/printer.
             ,@body
             (end-doc ,var))
        (delete-dc ,var))))
+
+(defun create-static (text &key parent styles font x y width height)
+  (let ((h (create-window :static
+			  :window-name text
+			  :styles (cond
+				    (styles styles)
+				    (parent (logior ftw::+ws-visible+ ftw::+ws-child+)))
+			  :x x :y y :width width :height height
+			  :parent parent)))
+    (set-default-font h font)
+    h))
+
+(defun create-edit (&key text parent styles font x y width height)
+  (let ((h (create-window :edit
+			  :window-name (or text "")
+			  :styles (cond
+				    (styles styles)
+				    (parent (logior ftw::+ws-visible+ ftw::+ws-child+)))
+			  :ex-styles (logior ftw::+ws-ex-clientedge+)
+			  :x x :y y :width width :height height
+			  :parent parent)))
+    (set-default-font h font)
+    h))
+

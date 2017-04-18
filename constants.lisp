@@ -2988,3 +2988,10 @@
 (defconstant +TVHT-BELOW+	512)
 (defconstant +TVHT-TORIGHT+	1024)
 (defconstant +TVHT-TOLEFT+	2048)
+
+(defconstant +ipm-clearaddress+ (+ +wm-user+ 100))
+(defconstant +ipm-setaddress+ (+ +wm-user+ 101))
+(defconstant +ipm-getaddress+ (+ +wm-user+ 102))
+(defconstant +ipm-setrange+ (+ +wm-user+ 103))
+(defconstant +ipm-setfocus+ (+ +wm-user+ 104))
+(defconstant +ipm-isblank+ (+ +wm-user+ 105))
