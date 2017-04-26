@@ -131,13 +131,9 @@ This allows the programmer to embed images without having to deliver them as sep
 
 	nil))))
 
-
-(defvar *default-message-font* 
-  (create-font-indirect (nonclientmetrics-message-font (system-parameters-info (const +spi-getnonclientmetrics+)))))
-
 (defun get-default-font ()
-  "Returns the default system message font." 
-  *default-message-font*)
+  "Returns the default system message font."
+  (create-font-indirect (nonclientmetrics-message-font (system-parameters-info (const +spi-getnonclientmetrics+)))))
 
 (defun set-default-font (hwnd &optional font)
   "Send a WM_SETFONT message to the window with the specified font. 
