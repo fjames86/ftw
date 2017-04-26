@@ -4237,18 +4237,58 @@ Returns the handle to the accelerator table.
   (milli :uint32)
   (wakemask :uint32))
 
+(defun translate-qs-mask (masks)
+  (let ((qs 0))
+    (dolist (m masks)
+      (setf qs
+	    (logior qs 
+		    (ecase m
+		      (:all #x04bf)
+		      (:all-input #x04ff)
+		      (:all-post-message #x0100)
+		      (:hotkey #x0080)
+		      (:input #x0407)
+		      (:key #x0001)
+		      (:mouse #x0006)
+		      (:mouse-button #x0004)
+		      (:mouse-move #x0002)
+		      (:paint #x0020)
+		      (:post-message #x0008)
+		      (:raw-input #x0400)
+		      (:send-message #x0040)
+		      (:timer #x0010)))))
+    qs))
+
 (defun msg-wait-for-multiple-objects (&key handles wait-all-p timeout mask)
+  "Wait for any of the specified event handles or a message in the message queue.
+This function makes it possible to interleave other asynchronous processing 
+with the normal message loop, for instance to do networking without blocking 
+the main thread. Keeping things singly threaded is often preferable to defering
+work to a background thread. 
+
+HANDLES ::= list of event handles.
+WAIT-ALL-P ::= if true only returns once all are signaled. Use with care! Almost always should be left as false.
+TIMEOUT ::= milliseconds to wait before returning with WAIT_TIMEOUT status. Defaults to 0 milliseconds.
+MASK ::= if integer specifies a mask of wake mask values, if list of symbols these are translated to the equivalent wake mask. Defaults to QS_ALLINPUT.
+
+Returns (WAIT_OBJECT_0 + index of signaled handle) if event signaled.
+
+Note: when this function returns (WAIT_OBJECT_0 + (length handles)) it indicates
+the message queue has a message pending. You should then process messages until
+PEEK-MESSAGE indicates no more messages are available. This is because when 
+processing messages you may post more messages to the queue.
+
+"
   (with-foreign-object (hlist :pointer (length handles))
     (do ((h handles (cdr h))
          (i 0 (1+ i)))
         ((null h))
-      (setf (mem-aref hlist :pointer i) (nth i handles)))
+      (setf (mem-aref hlist :pointer i) (car h)))
     (%msg-wait-for-multiple-objects (length handles)
                                     hlist
                                     wait-all-p
                                     (or timeout 0)
-                                    (or mask 0))))
-
+                                    (or mask #x04ff))))
 
 
 (defcfun (%drag-accept-files "DragAcceptFiles" :convention :stdcalL)
