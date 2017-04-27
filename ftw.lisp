@@ -60,6 +60,54 @@ Also processes accelerator keys set using SET-ACCELERATOR-TABLE.
              (translate-message msg)
              (dispatch-message msg))))))))
 
+(defun default-message-loop-multiple (wndproc &key class-name title width height background icon icon-small styles handle-procs)
+  "Message loop with multiple handles. Defines a new window class with :arrow cursor and 3d-face background,
+creates an overlapped, visible  window of this class. Shows, updates and sets this window to 
+the foreground. Then loops, processing messages, until a WM_QUIT message is received.
+
+Also processes accelerator keys set using SET-ACCELERATOR-TABLE.
+" 
+  (let ((cname (or class-name "FTW_MAIN_CLASS"))
+	(handles (mapcar #'first handle-procs))
+	(procs (mapcar #'second handle-procs)))
+    (register-class cname 
+                    wndproc
+                    :icon icon
+		    :icon-small icon-small
+                    :cursor (load-cursor :arrow)
+                    :background (or background (get-sys-color-brush :3d-face)))
+    (let ((hwnd (create-window cname 
+                               :window-name (or title cname)
+			       :ex-styles (logior-consts +ws-ex-appwindow+)
+                               :styles (or styles
+					   (logior +ws-overlappedwindow+ +ws-visible+))
+                               :x 100 :y 100 :width (or width 400) :height (or height 300)))
+          (msg (make-msg)))
+      (unless hwnd (return-from default-message-loop-multiple nil))
+      
+      (show-window hwnd)
+      (update-window hwnd)
+      (set-foreground-window hwnd)
+      (do ((done nil))
+          (done)
+	(let ((sts (msg-wait-for-multiple-objects :handles handles :timeout 500)))
+	  (cond
+	    ((= sts (length handles))
+	     ;; messages pending
+	     (do ((b (peek-message msg :error-p nil) (peek-message msg :error-p nil)))
+		 ((or (not b) done))
+	       (let ((r (get-message msg)))
+		 (cond
+		   ((zerop r) (setf done t))
+		   ((or (null *accel*)
+			(zerop (translate-accelerator hwnd *accel* msg)))
+		    (translate-message msg)
+		    (dispatch-message msg))))))
+	    ((and (>= sts 0) (< sts (length handles)))
+	     ;; handle signaled - invoke specified callback 
+	     (apply (nth sts procs)
+		    (cddr (nth sts handle-procs))))))))))
+
 
 (defun message-poll (&optional timeout)
   "Wait for messages to be available in the message queue." 
@@ -362,6 +410,17 @@ For examples see examples/printer.
 				    (styles styles)
 				    (parent (logior ftw::+ws-visible+ ftw::+ws-child+)))
 			  :ex-styles (logior ftw::+ws-ex-clientedge+)
+			  :x x :y y :width width :height height
+			  :parent parent)))
+    (set-default-font h font)
+    h))
+
+(defun create-button (text &key parent styles font x y width height)
+  (let ((h (create-window :button
+			  :window-name text 
+			  :styles (cond
+				    (styles styles)
+				    (parent (logior ftw::+ws-visible+ ftw::+ws-child+)))
 			  :x x :y y :width width :height height
 			  :parent parent)))
     (set-default-font h font)

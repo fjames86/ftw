@@ -194,14 +194,21 @@
 (defun msg-foreign (msg p)
   (declare (type foreign-pointer p)
 	   (type msg msg))
-  (setf (foreign-slot-value p '(:struct msg) 'hwnd) (msg-hwnd msg)
-	(foreign-slot-value p '(:struct msg) 'message) (msg-message msg)
-	(foreign-slot-value p '(:struct msg) 'wparam) (msg-wparam msg)
-	(foreign-slot-value p '(:struct msg) 'lparam) (msg-lparam msg)
-	(foreign-slot-value p '(:struct msg) 'time) (msg-time msg))
+  (setf (foreign-slot-value p '(:struct msg) 'hwnd)
+	(or (msg-hwnd msg) (null-pointer))
+	(foreign-slot-value p '(:struct msg) 'message)
+	(or (msg-message msg) 0)
+	(foreign-slot-value p '(:struct msg) 'wparam)
+	(or (msg-wparam msg) 0)
+	(foreign-slot-value p '(:struct msg) 'lparam)
+	(or (msg-lparam msg) 0)
+	(foreign-slot-value p '(:struct msg) 'time)
+	(or (msg-time msg) 0))
   (let ((pt (foreign-slot-pointer p '(:struct msg) 'pt)))
-    (setf (foreign-slot-value pt '(:struct point) 'x) (first (msg-pt msg))
-	  (foreign-slot-value pt '(:struct point) 'y) (second (msg-pt msg))))
+    (setf (foreign-slot-value pt '(:struct point) 'x)
+	  (or (first (msg-pt msg)) 0)
+	  (foreign-slot-value pt '(:struct point) 'y)
+	  (or (second (msg-pt msg)) 0)))
   p)
 
 (defun foreign-msg (p msg)
@@ -3921,9 +3928,9 @@ Returns the handle to the accelerator table.
   (remove-msg :uint32))
 
 (defun peek-message (msg &key hwnd filter-min filter-max remove-msg
-			   msg-types)
+			   msg-types (error-p t))
   (with-foreign-object (m '(:struct msg))
-    (msg-foreign msg m)
+    (memset m (foreign-type-size '(:struct msg)))
     (let ((res (%peek-message m
 			      (or hwnd (null-pointer))
 			      (or filter-min 0)
@@ -3948,7 +3955,7 @@ Returns the handle to the accelerator table.
 	(res 
 	 (foreign-msg m msg)
 	 res)
-	(t
+	(error-p
 	 (get-last-error))))))
 
 (defcfun (%get-menu "GetMenu" :convention :stdcall)
