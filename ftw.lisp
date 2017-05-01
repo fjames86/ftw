@@ -426,3 +426,23 @@ For examples see examples/printer.
     (set-default-font h font)
     h))
 
+
+
+(defparameter *hwnd-list* nil)
+(defun add-hwnd (name hwnd &optional (id 0))
+  (do ((hl *hwnd-list* (cdr hl)))
+      ((null hl))
+    (when (eq (first (car hl)) name)
+      (setf (second (car hl)) name
+	    (third (car hl)) id)
+      (return-from add-hwnd name)))
+  (push (list name hwnd id) *hwnd-list*)
+  name)
+(defun hwnd-by-name (name)
+  (second (find name *hwnd-list* :key #'first :test #'eq)))
+(defun hwnd-by-id (id)
+  (second (find id *hwnd-list* :key #'third :test #'=)))
+(defun hwnd-name-by-id (id)
+  (first (find id *hwnd-list* :key #'third :test #'=)))
+
+

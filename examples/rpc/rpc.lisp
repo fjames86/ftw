@@ -5,13 +5,10 @@
 
 (in-package #:ftw.rpc)
 
-(defparameter *wndlist* nil)
-(defun add-hwnd (name hwnd &optional (id 0))
-  (push (list name hwnd id) *wndlist*))
 (defun get-hwnd (name)
-  (second (assoc name *wndlist*)))
+  (hwnd-by-name name))
 (defun get-hwnd-by-id (id)
-  (second (find id *wndlist* :key #'third :test #'=)))
+  (hwnd-by-id id))
 
 (defparameter *clt*
   (make-instance 'frpc2:udp-client :timeout 0))
