@@ -1,3 +1,7 @@
+;;;; Copyright (c) Frank James 2016 <frank.a.james@gmail.com>
+;;;; This code is licensed under the MIT license.
+
+;;; DNS client. Provides lookups for various record types.
 
 (defpackage #:ftw.dragons
   (:use #:cl #:ftw)
@@ -85,6 +89,7 @@
   (let ((hwnd (hwnd-by-name 'recordtype)))
     (let ((idx (send-message hwnd ftw::+cb-getcursel+ 0 0)))
       (when (>= idx 0)
+	(format t "idx ~S type ~S~%" idx (nth idx *recordtypes*))
 	(second (nth idx *recordtypes*))))))
 
 (defun get-dns-addr ()
@@ -106,7 +111,7 @@
 (defun dragons-command (hwnd id)
   (switch id
     (1 ;; query button
-     (handler-case 
+     (handler-case
 	 (let ((answers (dns:query (dns:question (get-window-text (hwnd-by-name 'name))
 						 (get-record-type))
 				   :addr (get-dns-addr)

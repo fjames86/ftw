@@ -433,7 +433,7 @@ For examples see examples/printer.
   (do ((hl *hwnd-list* (cdr hl)))
       ((null hl))
     (when (eq (first (car hl)) name)
-      (setf (second (car hl)) name
+      (setf (second (car hl)) hwnd
 	    (third (car hl)) id)
       (return-from add-hwnd name)))
   (push (list name hwnd id) *hwnd-list*)

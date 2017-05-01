@@ -26,6 +26,7 @@ obviously reasons this is not possible when using Lisp.
 This is a Windows only library and does not work on any other platform.
 It is not a cross platform GUI library.
 
+
 # 3. Extra utilities
 Several extra functions and macros are provided which the author has found useful.
 These are found in ftw.lisp.
@@ -33,9 +34,13 @@ These are found in ftw.lisp.
 ## 3.1 Constants 
 To use the Win32 API you need access to a vast number of predefined constants. 
 These are defined in constants.lisp. Rather than export each of these symbols from 
-the FTW package the programmer has two options: either access using FTW::+fred+ 
-or use the macros 
+the FTW package the programmer has two options: either access directly 
+or use the macros `const` or `logior-consts`:
 ```
+;; directly 
+ftw::+fred+
+(logior ftw::+fred+ ftw::+jim+)
+;; sugar coating macro 
 (ftw:const +fred+)
 (ftw:logior-consts +fred+ +jim+)
 ```
@@ -44,8 +49,7 @@ The macro `CONST` takes a string designator and converts to the symbol with that
 In many places you need to pass a bitmask of logical-OR of several flags, use `LOGIOR-CONSTS` for this
 which performs the same transformation. 
 
-Note that there are possibly many constants which have not been defined in constants.lisp. These should be 
-added over time as they become useful.
+Note that there are possibly many constants which have not been defined in constants.lisp. These should be added over time as they become useful.
 
 ## 3.2 Resources 
 When writing Win32 programs in the C programming language it is common to embed binary resources such 
@@ -77,6 +81,18 @@ The functions `DIALOG-BOX` and `CREATE-DIALOG` create modal and modeless dialogs
 the same inputs. The difference is that modal dialogs do not return control to the caller until 
 the dialog has been closed whereas modeless dialogs return control immediately and run alongside the original
 window. 
+
+## Hwnd registry
+You may associate a window handle (hwnd) with a symbol name and optionally integer ID using `ADD-HWND`. Perform lookups by name or ID using `HWND-BY-NAME` and `HWND-BY-ID`:
+```
+(add-hwnd 'fred hwnd 1)
+(hwnd-by-name 'fred)
+(hwnd-by-id 1)
+(hwnd-name-by-id 1)
+```
+
+This makes it very simple to keep references to window handles in a consistent
+way rather than implementing private lists or globals in each program.
 
 # 4. Examples
 Various examples are provided which show various levels of abstractions and a
@@ -118,6 +134,18 @@ Simple pacman clone. Shows how to reduce flicker by double buffering.
 
 ## 4.9 Scrollbar 
 How to add scrollbars and response to scoll messages. 
+
+## 4.10 Dragons: DNS client
+This implements a simple DNS client using the DNS client [dragons](http://github.com/fjames86/dragons). Enter the DNS address in the IP address field, select the
+record type and entry name and click Query. The list box below is filled with
+the results returned from the server, or a message box indicates an error status.
+
+## 4.11 RPC: MsgWaitForMultipleObjects example
+This shows how to interleave networking and the message pump in the main thread,
+thereby making it possible to do asynchronous processing without blocking the
+gui. The example broadcasts to the rpcbinf null procedure and fills in results
+as they are received. This means the gui never blocks. The same technique can
+be applied to do background refreshes of data. 
 
 # 5. Notes
 Requires CFFI. Developed on Windows 8.1 and Windows 7 using SBCL 

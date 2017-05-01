@@ -1,14 +1,13 @@
+;;;; Copyright (c) Frank James 2016 <frank.a.james@gmail.com>
+;;;; This code is licensed under the MIT license.
+
+;;; RPC client. Requires frpc2 available from http://github.com/fjames86/frpc2.
 
 (defpackage #:ftw.rpc
   (:use #:cl #:ftw)
   (:export #:rpc))
 
 (in-package #:ftw.rpc)
-
-(defun get-hwnd (name)
-  (hwnd-by-name name))
-(defun get-hwnd-by-id (id)
-  (hwnd-by-id id))
 
 (defparameter *clt*
   (make-instance 'frpc2:udp-client :timeout 0))
@@ -28,14 +27,14 @@
 
 (defun rpc-command (hwnd id)
   (declare (ignore hwnd id))
-  (send-message (get-hwnd 'ip-lb) ftw::+lb-resetcontent+ 0 0)
+  (send-message (hwnd-by-name 'ip-lb) ftw::+lb-resetcontent+ 0 0)
   (frpc2:send-rpc *clt* #'drx:encode-void nil #'drx:decode-void
 		  100000 2 0))
 
 (defun rpc-event-cb (clt)
   (frpc2:recv-rpc clt)
   (with-wide-string (ws (fsocket:sockaddr-string (frpc2:udp-client-addr clt)))
-    (send-message (get-hwnd 'ip-lb) ftw::+lb-addstring+ 0 ws)))
+    (send-message (hwnd-by-name 'ip-lb) ftw::+lb-addstring+ 0 ws)))
 
 (defwndproc rpc-wndproc (hwnd msg wparam lparam)
   (switch msg
