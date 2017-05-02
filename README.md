@@ -82,12 +82,17 @@ the same inputs. The difference is that modal dialogs do not return control to t
 the dialog has been closed whereas modeless dialogs return control immediately and run alongside the original
 window. 
 
-## Hwnd registry
-You may associate a window handle (hwnd) with a symbol name and optionally integer ID using `ADD-HWND`. Perform lookups by name or ID using `HWND-BY-NAME` and `HWND-BY-ID`:
+## 3.4 Hwnd registry
+You may associate a window handle (hwnd) with a symbol name and optionally integer ID using `REGISTER-HWND`.
+Perform lookups by name or ID using `HWND-BY-NAME` and `HWND-BY-ID`:
 ```
-(add-hwnd 'fred hwnd 1)
-(hwnd-by-name 'fred)
+;; register an hwnd with the name FRED and ID 1
+(register-hwnd 'fred hwnd 1) 
+;; lookup hwnd with name FRED 
+(hwnd-by-name 'fred) 
+;; lookup hwnd with ID 1
 (hwnd-by-id 1)
+;; Lookup the name of the hwnd with ID 1 
 (hwnd-name-by-id 1)
 ```
 
@@ -143,9 +148,11 @@ the results returned from the server, or a message box indicates an error status
 ## 4.11 RPC: MsgWaitForMultipleObjects example
 This shows how to interleave networking and the message pump in the main thread,
 thereby making it possible to do asynchronous processing without blocking the
-gui. The example broadcasts to the rpcbinf null procedure and fills in results
-as they are received. This means the gui never blocks. The same technique can
-be applied to do background refreshes of data. 
+gui. The example broadcasts to the rpcbind null procedure and fills in results
+as they are received. Requires [frpc2](http://github.com/fjames86/frpc2).
+This means the gui never blocks, the same technique can be applied to do any networking,
+e.g. background refreshes of data. The examples uses RPC over UDP but there is no reason
+why you couldn't also do non-blocking TCP networking as well. 
 
 # 5. Notes
 Requires CFFI. Developed on Windows 8.1 and Windows 7 using SBCL 

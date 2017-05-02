@@ -22,7 +22,7 @@
 			  :parent hwnd
 			  :menu 1)))
     (set-default-font h)
-    (add-hwnd 'ip-lb h 1))
+    (register-hwnd 'ip-lb h 1))
   nil)
 
 (defun rpc-command (hwnd id)

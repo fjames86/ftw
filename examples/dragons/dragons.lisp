@@ -39,7 +39,7 @@
 				  (ash (aref inaddr 1) 16)
 				  (ash (aref inaddr 2) 8)
 				  (aref inaddr 3))))))
-      (add-hwnd 'ipaddress h))
+      (register-hwnd 'ipaddress h))
     
     (let ((h (create-window :button
 			    :window-name "Search"
@@ -61,11 +61,11 @@
 	(with-wide-string (s str)
 	  (send-message h ftw::+cb-addstring+ 0 s)))
       (send-message h ftw::+cb-setcursel+ 0 0)
-      (add-hwnd 'recordtype h 2))
+      (register-hwnd 'recordtype h 2))
     
     (let ((h (create-edit :parent hwnd
 			  :x 140 :y 125 :width 200 :height 25)))
-      (add-hwnd 'name h))
+      (register-hwnd 'name h))
     
     (let ((h (create-window :button
 			    :window-name "Query"
@@ -75,7 +75,7 @@
 			    :parent hwnd
 			    :menu 1)))
       (set-default-font h default-font)
-      (add-hwnd 'query h 1))
+      (register-hwnd 'query h 1))
 
     (let ((h (create-window :listbox
 			    :x 15 :y 215 :width 335 :height 200
@@ -83,13 +83,12 @@
 			    :ex-styles ftw::+ws-ex-clientedge+
 			    :styles (logior ftw::+ws-visible+ ftw::+ws-child+))))
       (set-default-font h default-font)
-      (add-hwnd 'rlist h))))
+      (register-hwnd 'rlist h))))
 
 (defun get-record-type ()
   (let ((hwnd (hwnd-by-name 'recordtype)))
     (let ((idx (send-message hwnd ftw::+cb-getcursel+ 0 0)))
       (when (>= idx 0)
-	(format t "idx ~S type ~S~%" idx (nth idx *recordtypes*))
 	(second (nth idx *recordtypes*))))))
 
 (defun get-dns-addr ()
@@ -99,7 +98,13 @@
       (fsocket:sockaddr-in (cffi:mem-ref inaddr :uint32) 53))))
 
 (defun format-rr (rr)
-  (format nil "~A ~A ~A" (dragons:rr-type rr) (dragons:rr-name rr) (dragons:rr-rdata rr)))
+  (case (dragons:rr-type rr)
+    (:a
+     (let ((inaddr (dragons:rr-rdata rr)))
+       (format nil "~A.~A.~A.~A"
+	       (aref inaddr 0) (aref inaddr 1) (aref inaddr 2) (aref inaddr 3))))
+    (otherwise 
+     (format nil "~A ~A ~A" (dragons:rr-type rr) (dragons:rr-name rr) (dragons:rr-rdata rr)))))
 
 (defun format-results (results)
   (let ((h (hwnd-by-name 'rlist)))
@@ -149,6 +154,13 @@
 ;;      (post-quit-message)))
 ;;   (default-window-proc hwnd msg wparam lparam))
 
+(defun dragons-size (hwnd w h)
+  (declare (ignore hwnd))
+  (set-window-pos (hwnd-by-name 'rlist) :top
+		  0 0 
+		  (- w 30) (- h 220)
+		  '(:no-move)))
+
 (defwndproc dragons-wndproc (hwnd msg wparam lparam)
   (switch msg
     (ftw::+wm-create+
@@ -156,13 +168,17 @@
     (ftw::+wm-command+
      (dragons-command hwnd (loword wparam)))
     (ftw::+wm-destroy+
-     (post-quit-message)))
+     (post-quit-message))
+    (ftw::+wm-size+
+     (dragons-size hwnd (loword lparam) (hiword lparam))))
   (default-window-proc hwnd msg wparam lparam))
 
 (defun dragons ()
   (default-message-loop 'dragons-wndproc
       :class-name "FTW_DRAGONS_MAIN"
       :title "Dragons DNS Viewer"
-      :width 370 :height 440
-      :styles (logior ftw::+ws-overlapped+ ftw::+ws-caption+ ftw::+ws-sysmenu+
-		      ftw::+ws-minimizebox+ ftw::+ws-visible+)))
+      :width 370 :height 440))
+      
+      ;; :styles (logior ftw::+ws-overlapped+ ftw::+ws-caption+ ftw::+ws-sysmenu+
+      ;; 		      ftw::+ws-minimizebox+
+      ;; 		      ftw::+ws-visible+)))

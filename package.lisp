@@ -414,7 +414,7 @@
        
        #:default-message-loop-multiple
 
-       #:add-hwnd
+       #:register-hwnd
        #:hwnd-by-name
        #:hwnd-by-id
        #:hwnd-name-by-id 
