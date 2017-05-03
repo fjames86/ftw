@@ -9,14 +9,25 @@
 
 (in-package #:ftw.dragons)
 
-(defvar *recordtypes*
+(defparameter *recordtypes*
   '(("A" :a)
     ("NS" :ns)
     ("CNAME" :cname)
+    ("SOA" :soa)
+    ("MB" :mb)
+    ("MR" :mr)
+    ("NULL" :null)
+    ("WKS" :wks)
     ("PTR" :ptr)
+    ("HINFO" :hinfo)
+    ("MINFO" :minfo)
+    ("MX" :mx)
     ("TXT" :txt)
     ("AAAA" :aaaa)
     ("SRV" :srv)
+    ("AXFR" :axfr)
+    ("MAILB" :mailb)
+    ("MAILA" :maila)
     ("ALL" :all)))
 
 (defun dragons-create (hwnd)
@@ -81,7 +92,8 @@
 			    :x 15 :y 215 :width 335 :height 200
 			    :parent hwnd
 			    :ex-styles ftw::+ws-ex-clientedge+
-			    :styles (logior ftw::+ws-visible+ ftw::+ws-child+))))
+			    :styles (logior ftw::+ws-visible+ ftw::+ws-child+
+					    ftw::+ws-hscroll+ ftw::+ws-vscroll+))))
       (set-default-font h default-font)
       (register-hwnd 'rlist h))))
 
@@ -104,7 +116,7 @@
        (format nil "~A.~A.~A.~A"
 	       (aref inaddr 0) (aref inaddr 1) (aref inaddr 2) (aref inaddr 3))))
     (otherwise 
-     (format nil "~A ~A ~A" (dragons:rr-type rr) (dragons:rr-name rr) (dragons:rr-rdata rr)))))
+     (format nil "~A ~A ~S" (dragons:rr-name rr) (dragons:rr-type rr) (dragons:rr-rdata rr)))))
 
 (defun format-results (results)
   (let ((h (hwnd-by-name 'rlist)))
