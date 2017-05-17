@@ -115,8 +115,9 @@
      (let ((inaddr (dragons:rr-rdata rr)))
        (format nil "~A.~A.~A.~A"
 	       (aref inaddr 0) (aref inaddr 1) (aref inaddr 2) (aref inaddr 3))))
-    (otherwise 
-     (format nil "~A ~A ~S" (dragons:rr-name rr) (dragons:rr-type rr) (dragons:rr-rdata rr)))))
+    (otherwise
+     (let ((*print-pretty* nil))
+       (format nil "~A ~A ~S" (dragons:rr-name rr) (dragons:rr-type rr) (dragons:rr-rdata rr))))))
 
 (defun format-results (results)
   (let ((h (hwnd-by-name 'rlist)))
