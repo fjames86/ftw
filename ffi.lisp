@@ -1934,7 +1934,7 @@ Return is keyword specifying button user clicked."
 			     (rect-foreign exclude-rect
 					   (foreign-slot-pointer params
 								 '(:struct tpmparams)
-								 'params)))
+								 'exclude)))
 			    (t (null-pointer))))))
 
 
