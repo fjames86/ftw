@@ -6092,3 +6092,167 @@ on what those integers can be.
 (defun imagelist-add (imagelist bitmap &optional mask)
   (%imagelist-add imagelist bitmap (or mask (null-pointer))))
 
+(defcstruct lvcolumn
+  (mask :uint32)
+  (fmt :int32)
+  (cx :int32)
+  (text :pointer)
+  (textmax :int32)
+  (subitem :int32)
+  (image :int32)
+  (order :int32)
+  (min :int32)
+  (default :int32)
+  (ideal :int32))
+
+(defun listview-insert-column (hwnd text column &key width)
+  (with-wide-string (s text)
+    (with-foreign-object (lvc '(:struct lvcolumn))
+      (memset lvc (foreign-type-size '(:struct lvcolumn)))
+      (setf (foreign-slot-value lvc '(:struct lvcolumn) 'text)
+            s
+            (foreign-slot-value lvc '(:struct lvcolumn) 'textmax)
+            (length text)
+            (foreign-slot-value lvc '(:struct lvcolumn) 'cx)
+            (or width -1)
+            (foreign-slot-value lvc '(:struct lvcolumn) 'mask)
+            (logior +lvcf-text+ +lvcf-width+ +lvcf-subitem+))
+      (send-message hwnd +lvm-insertcolumn+ column lvc))))
+
+
+(defcstruct lvitem
+  (mask :uint32)
+  (item :int32)
+  (subitem :int32)
+  (state :uint32)
+  (statemask :uint32)
+  (text :pointer)
+  (textmax :int32)
+  (image :int32)
+  (lparam lparam)
+  (indent :int32)
+  (groupid :int32)
+  (ncolumns :uint32)
+  (columns :pointer)
+  (colfmt :pointer)
+  (group :int32))
+
+(defun listview-insert-item (hwnd text column &key index lparam image)
+  (with-wide-string (s text)
+    (with-foreign-object (lvi '(:struct lvitem))
+      (memset lvi (foreign-type-size '(:struct lvitem)))
+      (setf (foreign-slot-value lvi '(:struct lvitem) 'mask)
+            (logior +lvif-text+ (if image +lvif-image+ 0) (if lparam +lvif-param+ 0))
+            (foreign-slot-value lvi '(:struct lvitem) 'item)
+            (or index 0)
+            (foreign-slot-value lvi '(:struct lvitem) 'subitem)
+            column
+            (foreign-slot-value lvi '(:struct lvitem) 'text)
+            s
+            (foreign-slot-value lvi '(:struct lvitem) 'lparam)
+            (or lparam 0))
+      (when image
+        (setf (foreign-slot-value lvi '(:struct lvitem) 'image)
+              image))
+
+      (send-message hwnd +lvm-insertitem+ 0 lvi))))
+
+(defun listview-set-item (hwnd item-index text column)
+  (with-wide-string (s text)
+    (with-foreign-object (lvi '(:struct lvitem))
+      (memset lvi (foreign-type-size '(:struct lvitem)))
+      (setf (foreign-slot-value lvi '(:struct lvitem) 'mask)
+            (logior +lvif-text+)
+            (foreign-slot-value lvi '(:struct lvitem) 'item)
+            item-index
+            (foreign-slot-value lvi '(:struct lvitem) 'subitem)
+            column
+            (foreign-slot-value lvi '(:struct lvitem) 'text)
+            s)
+
+      (send-message hwnd +lvm-setitem+ 0 lvi))))
+
+(defcfun (%get-cursor-pos "GetCursorPos" :convention :stdcall) :boolean
+  (point :pointer))
+
+(defun get-cursor-position ()
+  (with-foreign-object (lp '(:struct point))
+    (let ((res (%get-cursor-pos lp)))
+      (unless res (get-last-error))
+      (foreign-point lp))))
+
+(defcfun (%screen-to-client "ScreenToClient" :convention :stdcall) :boolean
+  (hwnd :pointer)
+  (lp :pointer))
+
+(defun screen-to-client (hwnd point)
+  (with-foreign-object (lp '(:struct point))
+    (point-foreign point lp)
+    (%screen-to-client hwnd lp)
+    (foreign-point lp)))
+
+;; typedef struct tagNMLISTVIEW
+;; {
+;;     NMHDR   hdr;
+;;     int     iItem;
+;;     int     iSubItem;
+;;     UINT    uNewState;
+;;     UINT    uOldState;
+;;     UINT    uChanged;
+;;     POINT   ptAction;
+;;     LPARAM  lParam;
+;; } NMLISTVIEW, *LPNMLISTVIEW;
+(defcstruct nmlistview
+  (nmhdr (:struct nmhdr))
+  (item :int32)
+  (subitem :int32)
+  (newstate :uint32)
+  (oldstate :uint32)
+  (changed :uint32)
+  (action (:struct point))
+  (param lparam))
+
+(defun foreign-nmlistview (p)
+  (list :nmhdr (foreign-nmhdr (foreign-slot-pointer p '(:struct nmlistview) 'nmhdr))
+        :item (foreign-slot-value p '(:struct nmlistview) 'item)
+        :subitem (foreign-slot-value p '(:struct nmlistview) 'subitem)
+        :newstate (foreign-slot-value p '(:struct nmlistview) 'newstate)
+        :oldstate (foreign-slot-value p '(:struct nmlistview) 'oldstate)
+        :changed (foreign-slot-value p '(:struct nmlistview) 'changed)
+        :action (foreign-point (foreign-slot-pointer p '(:struct nmlistview) 'action))
+        :lparam (foreign-slot-value p '(:struct nmlistview) 'param)))
+
+
+(defun create-combobox (parent &key x y width height)
+  (create-window :combobox
+                 :styles (logior +ws-child+ +ws-visible+ +cbs-dropdown+)
+                 :x (or x 0) :y (or y 0)
+                 :width (or width 120) :height (or height 110)
+                 :parent parent))
+
+(defun combobox-add-string (hwnd string)
+  (with-wide-string (s string)
+    (send-message hwnd +cb-addstring+ 0 s)))
+
+(defun combobox-del-string (hwnd &optional (index 0))
+  (send-message hwnd +cb-deletestring+ index 0))
+
+(defun combobox-selection (hwnd)
+  (send-message hwnd +cb-getcursel+ 0 0))
+
+(defun (setf combobox-selection) (value hwnd)
+  (send-message hwnd +cb-setcursel+
+                (if (null value)
+                    #xffffffffffffffff
+                    value)
+                0))
+
+(defun combobox-show-dropdown (hwnd)
+  (let ((res (send-message hwnd +cb-getdroppedstate+ 0 0)))
+    (not (zerop res))))
+
+(defun (setf combobox-show-dropdown) (value hwnd)
+  (send-message hwnd +cb-showdropdown+ (if value 1 0) 0))
+
+(defun combobox-reset-content (hwnd)
+  (send-message hwnd +cb-resetcontent+ 0 0))

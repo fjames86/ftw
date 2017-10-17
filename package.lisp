@@ -417,7 +417,22 @@
        #:register-hwnd
        #:hwnd-by-name
        #:hwnd-by-id
-       #:hwnd-name-by-id 
+       #:hwnd-name-by-id
+
+       #:listview-insert-column
+       #:listview-insert-item
+       #:listview-set-item
+       #:get-cursor-position
+       #:screen-to-client
+       #:foreign-nmlistview
+
+       #:create-combobox
+       #:combobox-add-string
+       #:combobox-del-string
+       #:combobox-selection
+       #:combobox-show-dropdown
+       #:combobox-reset-content
+       
 	   ))
 
 
