@@ -432,6 +432,48 @@
        #:combobox-selection
        #:combobox-show-dropdown
        #:combobox-reset-content
+
+       #:alloc-console
+       #:free-console
+       #:create-console-screen-buffer
+       #:open-console-std-input
+       #:open-console-std-output
+       #:set-console-active-screen-buffer
+       #:char-info-attributes
+       #:char-info
+       #:string-info
+       #:read-console-input
+       #:read-console-output
+       #:write-console-output
+       #:set-console-cursor-position
+       #:scroll-console-screen-buffer
+       #:fill-console-output-character
+       #:fill-console-output-attribute
+       #:get-console-display-mode
+       #:read-console
+       #:get-console-cursor-info
+       #:set-console-cursor-info
+       #:write-console
+       #:get-std-handle
+       #:set-console-text-attribute
+       #:attach-console
+       #:get-console-window
+       #:get-console-screen-buffer-info
+       #:set-console-screen-buffer-info
+       #:close-handle
+       #:get-console--title
+       #:get-number-of-console-input-events
+       #:set-std-handle
+       #:set-console-title
+       #:flush-console-input-buffer
+       #:get-console-mode
+       #:set-console-mode
+       #:console-mode
+       #:console-modes
+
+       #:get-current-console-font
+       #:set-current-console-font
+       #:set-console-screen-buffer-size
        
 	   ))
 

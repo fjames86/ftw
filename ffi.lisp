@@ -6256,3 +6256,910 @@ on what those integers can be.
 
 (defun combobox-reset-content (hwnd)
   (send-message hwnd +cb-resetcontent+ 0 0))
+
+;; BOOL WINAPI AllocConsole(void);
+(defcfun (%alloc-console "AllocConsole" :convention :stdcall) :boolean)
+(defun alloc-console ()
+  (let ((res (%alloc-console)))
+    (unless res (get-last-error))
+    res))
+
+;; BOOL WINAPI FreeConsole(void);
+(defcfun (free-console "FreeConsole" :convention :stdcall) :boolean)
+
+;; HANDLE WINAPI CreateConsoleScreenBuffer(
+;;   _In_             DWORD               dwDesiredAccess,
+;;   _In_             DWORD               dwShareMode,
+;;   _In_opt_   const SECURITY_ATTRIBUTES *lpSecurityAttributes,
+;;   _In_             DWORD               dwFlags,
+;;   _Reserved_       LPVOID              lpScreenBufferData
+;; );
+(defcfun (%create-console-screen-buffer "CreateConsoleScreenBuffer" :convention :stdcall)
+    :pointer
+  (access :uint32)
+  (share :uint32)
+  (attrs :pointer)
+  (flags :uint32)
+  (reserved :pointer))
+
+(defun create-console-screen-buffer ()
+  (%create-console-screen-buffer (logior #x40000000 #x80000000) ;; generic_read|generic_write
+				 3 ;; file_share_read|file_share_write
+				 (null-pointer)
+				 1 ;; text mode
+				 (null-pointer)))
+
+(defcfun (%create-file "CreateFileA" :convention :stdcall) :pointer
+  (filename :string)
+  (access :uint32)
+  (mode :uint32)
+  (attrs :pointer)
+  (disposition :uint32)
+  (flags :uint32)
+  (template :pointer))
+
+(defun open-console-std-input ()
+  (%create-file "CONIN$" 
+		(logior #x40000000 #x80000000) ;; generic_read|generic_write
+		3 ;; file_share_read|file_share_write
+		(null-pointer)
+		4 ;; open always
+		0
+		(null-pointer)))
+
+(defun open-console-std-output ()
+  (%create-file "CONOUT$" 
+		(logior #x40000000 #x80000000) ;; generic_read|generic_write
+		3 ;; file_share_read|file_share_write
+		(null-pointer)
+		4 ;; open always
+		0
+		(null-pointer)))
+  
+;; BOOL WINAPI SetConsoleActiveScreenBuffer(
+;;   _In_ HANDLE hConsoleOutput
+;; );
+(defcfun (%set-console-active-screen-buffer "SetConsoleActiveScreenBuffer" :convention :stdcall) :boolean
+  (handle :pointer))
+
+(defun set-console-active-screen-buffer (handle)
+  (unless (%set-console-active-screen-buffer handle) (get-last-error)))
+
+;; typedef struct _COORD {
+;;   SHORT X;
+;;   SHORT Y;
+;; } COORD, *PCOORD;
+(defcstruct coord
+  (x :uint16)
+  (y :uint16))
+
+;; typedef struct _SMALL_RECT {
+;;   SHORT Left;
+;;   SHORT Top;
+;;   SHORT Right;
+;;   SHORT Bottom;
+;; } SMALL_RECT;
+(defcstruct small-rect
+  (left :uint16)
+  (top :uint16)
+  (right :uint16)
+  (bottom :uint16))
+
+;; typedef struct _CHAR_INFO {
+;;   union {
+;;     WCHAR UnicodeChar;
+;;     CHAR  AsciiChar;
+;;   } Char;
+;;   WORD  Attributes;
+;; } CHAR_INFO, *PCHAR_INFO;
+(defcstruct char-info
+  (wchar :uint16)
+  (attrs :uint16))
+
+(defun char-info-attributes (&key fg-b fg-g fg-r fg-intensity
+			  bg-b bg-g bg-r bg-intensity)
+  (logior (if fg-b +foreground-blue+ 0)
+	  (if fg-g +foreground-green+ 0)
+	  (if fg-r +foreground-red+ 0)
+	  (if fg-intensity +foreground-intensity+ 0)
+	  (if bg-b +background-blue+ 0)
+	  (if bg-g +background-green+ 0)
+	  (if bg-r +background-red+ 0)
+	  (if bg-intensity +background-intensity+ 0)))
+
+(defun char-info (character &optional attrs)
+  (list character (or attrs 0)))
+
+(defun string-info (string &optional attrs)
+  (loop :for i :below (length string)
+     :collect (list (char string i) (or attrs 0))))
+
+;; typedef struct _FOCUS_EVENT_RECORD {
+;;   BOOL bSetFocus;
+;; } FOCUS_EVENT_RECORD;
+(defcstruct focus-event-record
+  (set-focus :boolean))
+
+;; typedef struct _KEY_EVENT_RECORD {
+;;   BOOL  bKeyDown;
+;;   WORD  wRepeatCount;
+;;   WORD  wVirtualKeyCode;
+;;   WORD  wVirtualScanCode;
+;;   union {
+;;     WCHAR UnicodeChar;
+;;     CHAR  AsciiChar;
+;;   } uChar;
+;;   DWORD dwControlKeyState;
+;; } KEY_EVENT_RECORD;
+(defcstruct key-event-record
+  (keydown :boolean)
+  (repeat :uint16)
+  (keycode :uint16)
+  (scancode :uint16)
+  (unicode :uint16)
+  (control :uint32))
+
+;; typedef struct _MENU_EVENT_RECORD {
+;;   UINT dwCommandId;
+;; } MENU_EVENT_RECORD, *PMENU_EVENT_RECORD;
+(defcstruct menu-event-record
+  (id :uint32))
+
+;; typedef struct _MOUSE_EVENT_RECORD {
+;;   COORD dwMousePosition;
+;;   DWORD dwButtonState;
+;;   DWORD dwControlKeyState;
+;;   DWORD dwEventFlags;
+;; } MOUSE_EVENT_RECORD;
+(defcstruct mouse-event-record
+  (coord (:struct coord))
+  (state :uint32)
+  (control :uint32)
+  (flags :uint32))
+
+;; typedef struct _WINDOW_BUFFER_SIZE_RECORD {
+;;   COORD dwSize;
+;; } WINDOW_BUFFER_SIZE_RECORD;
+(defcstruct window-event-record
+  (size (:struct coord)))
+
+;; typedef struct _INPUT_RECORD {
+;;   WORD  EventType;
+;;   union {
+;;     KEY_EVENT_RECORD          KeyEvent;
+;;     MOUSE_EVENT_RECORD        MouseEvent;
+;;     WINDOW_BUFFER_SIZE_RECORD WindowBufferSizeEvent;
+;;     MENU_EVENT_RECORD         MenuEvent;
+;;     FOCUS_EVENT_RECORD        FocusEvent;
+;;   } Event;
+;; } INPUT_RECORD;
+
+(defconstant +key-event+ #x0001)
+(defconstant +mouse-event+ #x0002)
+(defconstant +window-event+ #x0004)
+(defconstant +menu-event+ #x0008)
+(defconstant +focus-event+ #x0010)
+
+(defcunion input-record-union
+  (key (:struct key-event-record))
+  (menu (:struct menu-event-record))
+  (mouse (:struct mouse-event-record))
+  (window (:struct window-event-record))
+  (focus (:struct focus-event-record)))
+
+(defcstruct (input-record :class input-record-tclass)
+  (type :uint16)
+  (u (:union input-record-union)))
+
+(defmethod translate-from-foreign (ptr (type input-record-tclass))
+  (let* ((type (foreign-slot-value ptr '(:struct input-record) 'type))
+	 (ptr (foreign-slot-pointer ptr '(:struct input-record) 'u))
+	 (name (cond
+		 ((= type +key-event+) 'key)
+		 ((= type +mouse-event+) 'mouse)
+		 ((= type +window-event+) 'window)
+		 ((= type +focus-event+) 'focus)
+		 ((= type +menu-event+) 'menu))))
+    (cons name
+	  (foreign-slot-value ptr '(:union input-record-union) name))))
+             
+     
+;; BOOL WINAPI ReadConsoleInput(
+;;   _In_  HANDLE        hConsoleInput,
+;;   _Out_ PINPUT_RECORD lpBuffer,
+;;   _In_  DWORD         nLength,
+;;   _Out_ LPDWORD       lpNumberOfEventsRead
+;; );
+(defcfun (%read-console-input "ReadConsoleInputW" :convention :stdcall) :boolean
+  (handle :pointer)
+  (buf :pointer)
+  (len :uint32)
+  (nrevents :pointer))
+
+(defun read-console-input (handle &optional (count 32))
+  (with-foreign-objects ((buf '(:struct input-record) count)
+			 (revents :uint32))
+    (let ((res (%read-console-input handle buf count revents)))
+      (unless res (get-last-error))
+      (let ((n (mem-ref revents :uint32)))
+	(loop :for i :below (min n count)
+	   :collect (mem-aref buf '(:struct input-record) i))))))
+
+
+;; BOOL WINAPI ReadConsoleOutput(
+;;   _In_    HANDLE      hConsoleOutput,
+;;   _Out_   PCHAR_INFO  lpBuffer,
+;;   _In_    COORD       dwBufferSize,
+;;   _In_    COORD       dwBufferCoord,
+;;   _Inout_ PSMALL_RECT lpReadRegion
+;; );
+(defcfun (%read-console-output "ReadConsoleOutputW" :convention :stdcall) :boolean
+  (handle :pointer)
+  (buf :pointer)
+  (size :uint32)
+  (coord :uint32)
+  (region :pointer))
+
+(defun read-console-output (handle &key (x 0) (y 0) (width 80) (height 1))
+    (with-foreign-objects ((buf :uint32 (* width height))
+			   (region '(:struct small-rect)))
+      (setf (foreign-slot-value region '(:struct small-rect) 'left)
+	    x
+	    (foreign-slot-value region '(:struct small-rect) 'top)
+	    y
+	    (foreign-slot-value region '(:struct small-rect) 'right)
+	    (+ x width)
+	    (foreign-slot-value region '(:struct small-rect) 'bottom)
+	    (+ y height))
+      (let ((res (%read-console-output handle
+				       buf
+				       (logior (ash height 16) width)
+				       0
+				       region)))
+	(unless res (get-last-error))
+	(let ((real-width (- (foreign-slot-value region '(:struct small-rect) 'right)
+			     (foreign-slot-value region '(:struct small-rect) 'left)))
+	      (real-height (- (foreign-slot-value region '(:struct small-rect) 'bottom)
+			      (foreign-slot-value region '(:struct small-rect) 'top))))
+	  (loop :for i :below real-height :collect
+	     (loop :for j :below real-width :collect
+		(let ((ifo (mem-aref buf '(:struct char-info) (+ (* j width) i))))
+		  (list (code-char (getf ifo 'wchar))
+			(getf ifo 'attrs)))))))))
+			    
+
+
+;; BOOL WINAPI WriteConsoleOutput(
+;;   _In_          HANDLE      hConsoleOutput,
+;;   _In_    const CHAR_INFO   *lpBuffer,
+;;   _In_          COORD       dwBufferSize,
+;;   _In_          COORD       dwBufferCoord,
+;;   _Inout_       PSMALL_RECT lpWriteRegion
+;; );	    
+(defcfun (%write-console-output "WriteConsoleOutputW" :convention :stdcall) :boolean
+  (handle :pointer)
+  (buf :pointer)
+  (size :uint32)
+  (coord :uint32)
+  (reg :pointer))
+(defun write-console-output (handle info &key (x 0) (y 0))
+  (let ((width (length (first info)))
+	(height (length info)))
+    (with-foreign-objects ((buf '(:struct char-info) (* width height))
+			   (reg '(:struct small-rect)))
+      (setf (foreign-slot-value reg '(:struct small-rect) 'left) x
+	    (foreign-slot-value reg '(:struct small-rect) 'right) (+ x width)
+	    (foreign-slot-value reg '(:struct small-rect) 'top) y
+	    (foreign-slot-value reg '(:struct small-rect) 'bottom) (+ y height))
+      (dotimes (j width)
+	(dotimes (i height)
+	  (let ((ptr (mem-aptr buf '(:struct char-info) (+ (* i width) j)))
+		(ifo (nth j (nth i info))))
+	    (setf (foreign-slot-value ptr '(:struct char-info) 'wchar)
+		  (char-code (first ifo))
+		  (foreign-slot-value ptr '(:struct char-info) 'attrs)
+		  (second ifo)))))
+
+      (unless (%write-console-output handle
+				     buf
+				     (logior (ash height 16) width)
+				     0
+				     reg)
+	(get-last-error)))))
+	    
+  
+
+;; BOOL WINAPI SetConsoleCursorPosition(
+;;   _In_ HANDLE hConsoleOutput,
+;;   _In_ COORD  dwCursorPosition
+;; );
+(defcfun (%set-console-cursor-pos "SetConsoleCursorPosition" :convention :stdcall)
+    :boolean
+  (handle :pointer)
+  (pos :uint32))
+(defun set-console-cursor-position (handle x y)
+  (%set-console-cursor-pos handle (logior (ash y 16) x)))
+
+;; BOOL WINAPI ScrollConsoleScreenBuffer(
+;;   _In_           HANDLE     hConsoleOutput,
+;;   _In_     const SMALL_RECT *lpScrollRectangle,
+;;   _In_opt_ const SMALL_RECT *lpClipRectangle,
+;;   _In_           COORD      dwDestinationOrigin,
+;;   _In_     const CHAR_INFO  *lpFill
+;; );
+(defcfun (%scroll-console-screen-buffer "ScrollConsoleScreenBufferW" :convention :stdcall) :boolean
+  (handle :pointer)
+  (scrollr :pointer)
+  (clipr :pointer)
+  (dest :uint32)
+  (fill :pointer))
+(defun scroll-console-screen-buffer (handle x y
+				     &key (scroll-x 0) (scroll-y 0)
+				       (scroll-w 80) (scroll-h 1)
+				       (fill-char #\space) (fill-colour 0))
+  (with-foreign-objects ((scrollr '(:struct small-rect))
+			 (fill '(:struct char-info)))
+    (setf (foreign-slot-value scrollr '(:struct small-rect) 'left) scroll-x
+	  (foreign-slot-value scrollr '(:struct small-rect) 'top) scroll-y
+	  (foreign-slot-value scrollr '(:struct small-rect) 'right)
+	  (+ scroll-x scroll-w)
+	  (foreign-slot-value scrollr '(:struct small-rect) 'bottom)
+	  (+ scroll-y scroll-h)
+
+	  (foreign-slot-value fill '(:struct char-info) 'wchar)
+	  (char-code fill-char)
+	  (foreign-slot-value fill '(:struct char-info) 'attrs)
+	  fill-colour)			      
+	  
+    (%scroll-console-screen-buffer handle
+				   scrollr
+				   (null-pointer)
+				   (logior (ash y 16) x)
+				   fill)))
+
+;; BOOL WINAPI FillConsoleOutputCharacter(
+;;   _In_  HANDLE  hConsoleOutput,
+;;   _In_  TCHAR   cCharacter,
+;;   _In_  DWORD   nLength,
+;;   _In_  COORD   dwWriteCoord,
+;;   _Out_ LPDWORD lpNumberOfCharsWritten
+;; );
+(defcfun (%fill-console-output-char "FillConsoleOutputCharacterW" :convention :stdcall) :boolean
+  (handle :pointer)
+  (char :uint32)
+  (len :uint32)
+  (coord :uint32)
+  (nchars :pointer))
+
+(defun fill-console-output-character (handle character x y &optional (length 1))
+  (with-foreign-object (nchars :uint32)
+    (unless (%fill-console-output-char handle
+				       (char-code character)
+				       length
+				       (logior (ash y 16) x)
+				       nchars)
+      (get-last-error))
+    (mem-ref nchars :uint32)))
+  
+
+;; BOOL WINAPI FillConsoleOutputAttribute(
+;;   _In_  HANDLE  hConsoleOutput,
+;;   _In_  WORD    wAttribute,
+;;   _In_  DWORD   nLength,
+;;   _In_  COORD   dwWriteCoord,
+;;   _Out_ LPDWORD lpNumberOfAttrsWritten
+;; );
+(defcfun (%fill-console-output-attr "FillConsoleOutputAttribute" :convention :stdcall) :boolean
+  (handle :pointer)
+  (attr :uint16)
+  (len :uint32)
+  (coord :uint32)
+  (nattrs :pointer))
+
+(defun fill-console-output-attribute (handle attrs x y &optional (length 1))
+  (with-foreign-object (nattrs :uint32)
+    (%fill-console-output-attr handle
+			       attrs
+			       length
+			       (logior (ash y 16) x)
+			       nattrs)))
+
+
+;; BOOL WINAPI GetConsoleDisplayMode(
+;;   _Out_ LPDWORD lpModeFlags
+;; );
+(defcfun (%get-console-display-mode "GetConsoleDisplayMode" :convention :stdcall)
+    :boolean
+  (flags :pointer))
+(defun get-console-display-mode ()
+  (with-foreign-object (flags :uint32)
+    (unless (%get-console-display-mode flags) (get-last-error))    
+    (values (unless (zerop (logand (mem-ref flags :uint32) 1)) :fullscreen)
+	    (unless (zerop (logand (mem-ref flags :uint32) 2)) :fullscreen-hardware))))
+
+;; BOOL WINAPI ReadConsole(
+;;   _In_     HANDLE  hConsoleInput,
+;;   _Out_    LPVOID  lpBuffer,
+;;   _In_     DWORD   nNumberOfCharsToRead,
+;;   _Out_    LPDWORD lpNumberOfCharsRead,
+;;   _In_opt_ LPVOID  pInputControl
+;; );
+(defcfun (%read-console "ReadConsoleW" :convention :stdcall) :boolean
+  (handle :pointer)
+  (buf :pointer)
+  (nchars :uint32)
+  (nread :pointer)
+  (control :pointer))
+
+(defun read-console (handle)
+  (with-foreign-objects ((buf :uint16 1024)
+			 (nread :uint32))
+    (let ((res (%read-console handle buf 1024 nread (null-pointer))))
+      (unless res (get-last-error))
+      (let ((str (foreign-string-to-lisp buf :encoding :ucs-2le)))
+	str))))
+
+;; typedef struct _CONSOLE_CURSOR_INFO {
+;;   DWORD dwSize;
+;;   BOOL  bVisible;
+;; } CONSOLE_CURSOR_INFO, *PCONSOLE_CURSOR_INFO;
+(defcstruct console-cursor-info
+  (size :uint32)
+  (visible :boolean))
+
+;; BOOL WINAPI GetConsoleCursorInfo(
+;;   _In_  HANDLE               hConsoleOutput,
+;;   _Out_ PCONSOLE_CURSOR_INFO lpConsoleCursorInfo
+;; );
+(defcfun (%get-console-cursor-info "GetConsoleCursorInfo" :convention :stdcall)
+    :boolean
+  (handle :pointer)
+  (info :pointer))
+
+(defun get-console-cursor-info (handle)
+  (with-foreign-object (info '(:struct console-cursor-info))
+    (let ((res (%get-console-cursor-info handle info)))
+      (unless res (get-last-error))
+      (mem-ref info '(:struct console-cursor-info)))))
+
+;; BOOL WINAPI SetConsoleCursorInfo(
+;;   _In_       HANDLE              hConsoleOutput,
+;;   _In_ const CONSOLE_CURSOR_INFO *lpConsoleCursorInfo
+;; );
+(defcfun (%set-console-cursor-info "SetConsoleCursorInfo" :convention :stdcall) :boolean
+  (handle :pointer)
+  (info :pointer))
+
+(defun set-console-cursor-info (handle &key (size 100) (visible t))
+  (with-foreign-object (info '(:struct console-cursor-info))
+    (setf (foreign-slot-value info '(:struct console-cursor-info) 'size)
+	  size
+	  (foreign-slot-value info '(:struct console-cursor-info) 'visible)
+	  visible)	  
+    (%set-console-cursor-info handle info)))
+
+;; BOOL WINAPI WriteConsole(
+;;   _In_             HANDLE  hConsoleOutput,
+;;   _In_       const VOID    *lpBuffer,
+;;   _In_             DWORD   nNumberOfCharsToWrite,
+;;   _Out_            LPDWORD lpNumberOfCharsWritten,
+;;   _Reserved_       LPVOID  lpReserved
+;; );
+(defcfun (%write-console "WriteConsoleW" :convention :stdscall) :boolean
+  (handle :pointer)
+  (buf :pointer)
+  (nchars :uint32)
+  (nwritten :pointer)
+  (reserved :pointer))
+
+(defun write-console (handle string)
+  (let ((count (length string)))
+    (with-wide-string (buf string)
+      (with-foreign-object (nwritten :uint32)
+	(let ((res (%write-console handle buf count nwritten (null-pointer))))
+	  (unless res (get-last-error))
+	  (mem-ref nwritten :uint32))))))
+	
+
+;; HANDLE WINAPI GetStdHandle(
+;;   _In_ DWORD nStdHandle
+;; );
+(defcfun (%get-std-handle "GetStdHandle" :convention :stdcall) :pointer
+  (std :int32))
+
+(defun get-std-handle (in-out-error)
+  (let ((handle (%get-std-handle (ecase in-out-error
+				   ((:in :input) -10)
+				   ((:out :output) -11)
+				   (:error -12)))))
+    (when (= (pointer-address handle) #xffffffffffffffff)
+      (get-last-error))
+    handle))
+
+;; BOOL WINAPI SetConsoleTextAttribute(
+;;   _In_ HANDLE hConsoleOutput,
+;;   _In_ WORD   wAttributes
+;; );
+(defcfun (%set-console-text-attribute "SetConsoleTextAttribute" :convention :stdcall) :boolean
+  (handle :pointer)
+  (attrs :uint16))
+
+(defun set-console-text-attribute (handle &optional attrs)
+  (let ((res
+	 (%set-console-text-attribute handle attrs)))
+    (unless res (get-last-error))
+    nil))
+
+
+
+						     
+						     
+;; BOOL WINAPI AttachConsole(
+;;   _In_ DWORD dwProcessId
+;; );
+(defcfun (%attach-console "AttachConsole" :convention :stdcall) :boolean
+  (pid :int32))
+
+(defun attach-console (&optional pid)
+  (unless (%attach-console (or pid -1)) (get-last-error)))
+
+;; WND WINAPI GetConsoleWindow(void);
+(defcfun (%get-console-window "GetConsoleWindow" :convention :stdcall) :pointer)
+
+(defun get-console-window ()
+  (%get-console-window))
+
+;; typedef struct _CONSOLE_SCREEN_BUFFER_INFOEX {
+;;   ULONG      cbSize;
+;;   COORD      dwSize;
+;;   COORD      dwCursorPosition;
+;;   WORD       wAttributes;
+;;   SMALL_RECT srWindow;
+;;   COORD      dwMaximumWindowSize;
+;;   WORD       wPopupAttributes;
+;;   BOOL       bFullscreenSupported;
+;;   COLORREF   ColorTable[16];
+;; } CONSOLE_SCREEN_BUFFER_INFOEX, *PCONSOLE_SCREEN_BUFFER_INFOEX;
+(defcstruct console-screen-buffer-info-ex
+  (cbsize :uint32)
+  (size (:struct coord))
+  (cursorpos (:struct coord))
+  (attrs :uint16)
+  (window (:struct small-rect))
+  (max-size (:struct coord))
+  (popup-attrs :uint16)
+  (fullscreen-p :boolean)
+  (colourtab :uint32 :count 16))
+
+;; BOOL WINAPI GetConsoleScreenBufferInfoEx(
+;;   _In_  HANDLE                        hConsoleOutput,
+;;   _Out_ PCONSOLE_SCREEN_BUFFER_INFOEX lpConsoleScreenBufferInfoEx
+;; );
+(defcfun (%get-console-screen-buffer-info-ex "GetConsoleScreenBufferInfoEx" :convention :stdcall)
+    :boolean
+  (handle :pointer)
+  (info :pointer))
+
+(defun get-console-screen-buffer-info (handle)
+  (with-foreign-object (info '(:struct console-screen-buffer-info-ex))
+    (setf (foreign-slot-value info '(:struct console-screen-buffer-info-ex) 'cbsize)
+	  (foreign-type-size '(:struct console-screen-buffer-info-ex)))
+    (unless (%get-console-screen-buffer-info-ex handle info) (get-last-error))
+    (let ((ifo (mem-ref info '(:struct console-screen-buffer-info-ex))))
+      (let ((colourtab (getf ifo 'colourtab)))
+	(setf (getf ifo 'colourtab)
+	      (loop :for i :below 16 :collect
+		 (let ((x (mem-aref colourtab :uint32 i)))
+		   (list (logand x #xff)
+			 (logand (ash x -8) #xff)
+			 (logand (ash x -16) #xff))))))
+      ifo)))
+
+;; BOOL WINAPI SetConsoleScreenBufferInfoEx(
+;;   _In_ HANDLE                        hConsoleOutput,
+;;   _In_ PCONSOLE_SCREEN_BUFFER_INFOEX lpConsoleScreenBufferInfoEx
+;;   );
+(defcfun (%set-console-screen-buffer-info-ex "SetConsoleScreenBufferInfoEx" :convention :stdcall) :boolean
+  (handle :pointer)
+  (info :pointer))
+
+(defun set-console-screen-buffer-info (handle
+				       &key size cursorpos attrs window max-size
+					 popup-attrs fullscreen-p colourtab)
+  (with-foreign-object (p '(:struct console-screen-buffer-info-ex))
+    (memset p (foreign-type-size '(:struct console-screen-buffer-info-ex)))
+    (setf (foreign-slot-value p '(:struct console-screen-buffer-info-ex) 'cbsize)
+	  (foreign-type-size '(:struct console-screen-buffer-info-ex)))
+    (%get-console-screen-buffer-info-ex handle p)
+    ;; fill in slots specified by keyword args
+    (when size
+      (let ((sp (foreign-slot-pointer p '(:struct console-screen-buffer-info-ex) 'size)))
+	(setf (mem-ref sp :uint32) (logior (ash (second size) 16)
+					   (first size)))))
+    (when cursorpos
+      (let ((sp (foreign-slot-pointer p '(:struct console-screen-buffer-info-ex) 'cursorpos)))
+	(setf (mem-ref sp :uint32) (logior (ash (second cursorpos) 16)
+					   (first cursorpos)))))
+    (when attrs
+      (setf (foreign-slot-value p '(:struct console-screen-buffer-info-ex) 'attrs)
+	    attrs))
+    (when window
+      (setf (foreign-slot-value p '(:struct console-screen-buffer-info-ex) 'window)
+	    window))
+    (when max-size
+      (let ((sp (foreign-slot-pointer p '(:struct console-screen-buffer-info-ex) 'max-size)))
+	(setf (mem-ref sp :uint32) (logior (ash (second max-size) 16)
+					   (first max-size)))))
+    (when popup-attrs
+      (setf (foreign-slot-value p '(:struct console-screen-buffer-info-ex) 'popup-attrs)
+	    popup-attrs))
+    (unless (eq fullscreen-p (foreign-slot-value p
+						 '(:struct console-screen-buffer-info-ex) 'fullscreen-p))
+      (setf (foreign-slot-value p '(:struct console-screen-buffer-info-ex) 'fullscreen-p)
+	    fullscreen-p))
+    (when colourtab
+      (let ((cp (foreign-slot-pointer p '(:struct console-screen-buffer-info-ex) 'colourtab)))
+	(dotimes (i 16)
+	  (setf (mem-aref cp :uint32 i)
+		(let ((c (nth i colourtab)))
+		  (logior (first c)
+			  (ash (second c) 8)
+			  (ash (third c) 16)))))))
+
+    (let ((res (%set-console-screen-buffer-info-ex handle p)))
+      (unless res (get-last-error))
+      t)))
+    
+
+
+    
+;; BOOL WINAPI CloseHandle(
+;;   _In_ HANDLE hObject
+;; );
+(defcfun (%close-handle "CloseHandle" :convention :stdcall) :boolean
+  (handle :pointer))
+
+(defun close-handle (handle)
+  (unless (%close-handle handle)
+    (get-last-error)))
+
+;; DWORD WINAPI GetConsoleTitle(
+;;   _Out_ LPTSTR lpConsoleTitle,
+;;   _In_  DWORD  nSize
+;; );
+(defcfun (%get-console-title "GetConsoleTitleW" :convention :stdcall) :uint32
+  (buf :pointer)
+  (size :uint32))
+
+(defun get-console-title ()
+  (with-foreign-object (buf :uint16 1024)
+    (let ((n (%get-console-title buf 1024)))
+      (when (zerop n) (get-last-error))
+      (foreign-string-to-lisp buf :encoding :ucs-2le))))
+
+;; BOOL WINAPI GetNumberOfConsoleInputEvents(
+;;   _In_  HANDLE  hConsoleInput,
+;;   _Out_ LPDWORD lpcNumberOfEvents
+;; );
+(defcfun (%get-number-of-console-input-events "GetNumberOfConsoleInputEvents" :convention :stdcall) :boolean
+  (handle :pointer)
+  (nevents :pointer))
+
+(defun get-number-of-console-input-events (handle)
+  (with-foreign-object (nevents :uint32)
+    (unless (%get-number-of-console-input-events handle nevents) (get-last-error))
+    (mem-ref nevents :uint32)))
+
+;; BOOL WINAPI SetStdHandle(
+;;   _In_ DWORD  nStdHandle,
+;;   _In_ HANDLE hHandle
+;; );
+(defcfun (%set-std-handle "SetStdHandle" :convention :stdcall) :boolean
+  (type :int32)
+  (handle :pointer))
+
+(defun set-std-handle (handle in-out-error)
+  (%set-std-handle (ecase in-out-error
+		     ((:in :input) -10)
+		     ((:out :output) -11)
+		     (:error -12))
+		   handle))
+
+;; BOOL WINAPI SetConsoleTitle(
+;;   _In_ LPCTSTR lpConsoleTitle
+;; );
+(defcfun (%set-console-title "SetConsoleTitleW" :convention :stdcall) :boolean
+  (str :pointer))
+
+(defun set-console-title (string)
+  (with-wide-string (s string)
+    (%set-console-title s)))
+
+;; BOOL WINAPI FlushConsoleInputBuffer(
+;;   _In_ HANDLE hConsoleInput
+;; );
+(defcfun (%flush-console-input-buffer "FlushConsoleInputBuffer" :convention :stdcall) :boolean
+  (handle :pointer))
+
+(defun flush-console-input-buffer (handle)
+  (unless (%flush-console-input-buffer handle) (get-last-error)))
+
+;; BOOL WINAPI GetConsoleMode(
+;;   _In_  HANDLE  hConsoleHandle,
+;;   _Out_ LPDWORD lpMode
+;; );
+(defcfun (%get-console-mode "GetConsoleMode" :convention :stdcall) :boolean
+  (handle :pointer)
+  (mode :pointer))
+
+(defun get-console-mode (handle)
+  (with-foreign-object (mode :uint32)
+    (unless (%get-console-mode handle mode) (get-last-error))
+    (mem-ref mode :uint32)))
+
+;; BOOL WINAPI SetConsoleMode(
+;;   _In_ HANDLE hConsoleHandle,
+;;   _In_ DWORD  dwMode
+;; );
+(defcfun (%set-console-mode "SetConsoleMode" :convention :stdcall) :boolean
+  (handle :pointer)
+  (mode :uint32))
+
+(defun set-console-mode (handle mode)
+  (unless (%set-console-mode handle mode) (get-last-error)))
+
+
+(defun console-mode (handle name)
+  (let ((mode (get-console-mode handle)))
+    (not (zerop (logand mode
+			(ecase name
+			  (:echo-input +enable-echo-input+)
+			  (:insert-mode +enable-insert-mode+)
+			  (:line-input +enable-line-input+)
+			  (:mouse-input +enable-mouse-input+)
+			  (:processed-input +enable-processed-input+)
+			  (:quick-edit-mode +enable-quick-edit-mode+)
+			  (:window-input +enable-window-input+)
+			  (:virtual-terminal-input +enable-virtual-terminal-input+)))))))
+
+(defun console-modes (handle)
+  (let ((mode (get-console-mode handle))
+	(modes nil))
+    (mapc (lambda (name val)
+	    (unless (zerop (logand mode val))
+	      (push name modes)))
+	  '(:echo-input :insert-mode :line-input :mouse-input :processed-input :quick-edit-mode :window-input :virtual-terminal-input)
+	  (list +enable-echo-input+ +enable-insert-mode+
+		+enable-line-input+ +enable-mouse-input+
+		+enable-processed-input+ +enable-quick-edit-mode+
+		+enable-window-input+ +enable-virtual-terminal-input+))
+    modes))
+    
+
+(defun (setf console-mode) (value handle name)
+  (let ((mode (get-console-mode handle)))
+    (if value
+	(setf mode
+	      (logior mode
+		      (ecase name
+			(:echo-input +enable-echo-input+)
+			(:insert-mode +enable-insert-mode+)
+			(:line-input +enable-line-input+)
+			(:mouse-input +enable-mouse-input+)
+			(:processed-input +enable-processed-input+)
+			(:quick-edit-mode +enable-quick-edit-mode+)
+			(:window-input +enable-window-input+)
+			(:virtual-terminal-input +enable-virtual-terminal-input+))))
+	(setf mode
+	      (logand mode
+		      (lognot
+		       (ecase name
+			 (:echo-input +enable-echo-input+)
+			 (:insert-mode +enable-insert-mode+)
+			 (:line-input +enable-line-input+)
+			 (:mouse-input +enable-mouse-input+)
+			 (:processed-input +enable-processed-input+)
+			 (:quick-edit-mode +enable-quick-edit-mode+)
+			 (:window-input +enable-window-input+)
+			 (:virtual-terminal-input +enable-virtual-terminal-input+))))))
+    (set-console-mode handle mode)))
+
+
+;; typedef struct _CONSOLE_FONT_INFOEX {
+;;   ULONG cbSize;
+;;   DWORD nFont;
+;;   COORD dwFontSize;
+;;   UINT  FontFamily;
+;;   UINT  FontWeight;
+;;   WCHAR FaceName[LF_FACESIZE];
+;; } CONSOLE_FONT_INFOEX, *PCONSOLE_FONT_INFOEX;
+(defcstruct console-font-info
+  (cbsize :uint32)
+  (font :uint32)
+  (size (:struct coord))
+  (family :uint32)
+  (weight :uint32)
+  (name :uint16 :count 32)) 
+
+;; BOOL WINAPI GetCurrentConsoleFontEx(
+;;   _In_  HANDLE               hConsoleOutput,
+;;   _In_  BOOL                 bMaximumWindow,
+;;   _Out_ PCONSOLE_FONT_INFOEX lpConsoleCurrentFontEx
+;; );
+(defcfun (%get-current-console-font "GetCurrentConsoleFontEx" :convention :stdcall) :boolean
+  (handle :pointer)
+  (maxwindow :boolean)
+  (info :pointer))
+
+(defun get-current-console-font (handle &optional max-window-p)
+  (with-foreign-object (info '(:struct console-font-info))
+    (setf (foreign-slot-value info '(:struct console-font-info) 'cbsize) 84)
+    (let ((res (%get-current-console-font handle max-window-p info)))
+      (unless res (get-last-error))
+      (let ((p (mem-ref info '(:struct console-font-info))))
+	(setf (getf p 'name)
+	      (foreign-string-to-lisp (getf p 'name) :encoding :ucs-2le))
+	p))))
+
+;; BOOL WINAPI SetCurrentConsoleFontEx(
+;;   _In_ HANDLE               hConsoleOutput,
+;;   _In_ BOOL                 bMaximumWindow,
+;;   _In_ PCONSOLE_FONT_INFOEX lpConsoleCurrentFontEx
+;; );
+(defcfun (%set-current-console-font "SetCurrentConsoleFontEx" :convention :stdcall) :boolean
+  (handle :pointer)
+  (maxwindow :boolean)
+  (info :pointer))
+
+;; family: 1==fixed pitch 2==vector 4==truetype 8==device
+(defun set-current-console-font (handle
+				 &key font width height weight family name max-window-p)
+  (with-foreign-object (info '(:struct console-font-info))
+    (setf (foreign-slot-value info '(:struct console-font-info) 'cbsize) 84)
+    (unless (%get-current-console-font handle max-window-p info)
+      (get-last-error))
+    (when font
+      (setf (foreign-slot-value info '(:struct console-font-info) 'font)
+	    font))
+    (when weight
+      (setf (foreign-slot-value info '(:struct console-font-info) 'weight)
+	    weight))
+    (when family
+      (setf (foreign-slot-value info '(:struct console-font-info) 'family)
+	    family))
+    (when width
+      (let ((p (foreign-slot-pointer info '(:struct console-font-info) 'size)))
+	(setf (mem-ref p :uint32)
+	      (logior (ash width 16)
+		      (logand (mem-ref p :uint32) #xffff)))))
+    (when height
+      (let ((p (foreign-slot-pointer info '(:struct console-font-info) 'size)))
+	(setf (mem-ref p :uint32)
+	      (logior (logand (mem-ref p :uint32) #xffff0000)
+		      (logand height #xffff)))))
+    (when name
+      (lisp-string-to-foreign name
+			      (foreign-slot-pointer info '(:struct console-font-info) 'name)
+			      (* 32 16)))
+    
+    (let ((res (%set-current-console-font handle
+					  max-window-p
+					  info)))
+      (unless res (get-last-error))
+      res)))
+					  
+
+;; BOOL WINAPI SetConsoleScreenBufferSize(
+;;   _In_ HANDLE hConsoleOutput,
+;;   _In_ COORD  dwSize
+;;   );
+(defcfun (%set-console-screen-buffer-size "SetConsoleScreenBufferSize" :convention :stdcall) :boolean
+  (handle :pointer)
+  (size :uint32))
+
+(defun set-console-screen-buffer-size (handle width height)
+  (unless (%set-console-screen-buffer-size handle
+					   (logior (ash width 16) height))
+    (get-last-error)))
+
+  

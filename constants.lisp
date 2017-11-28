@@ -3135,3 +3135,35 @@
 (defconstant +LVIS-ACTIVATING+         #x0020)
 (defconstant +LVIS-OVERLAYMASK+        #x0F00)
 (defconstant +LVIS-STATEIMAGEMASK+     #xF000)
+
+(defconstant +foreground-blue+ 1)
+(defconstant +foreground-green+ 2)
+(defconstant +foreground-red+ 4)
+(defconstant +foreground-intensity+ 8)
+(defconstant +background-blue+ 16)
+(defconstant +background-green+ 32)
+(defconstant +background-red+ 64)
+(defconstant +background-intensity+ 128)
+
+;; input console modes 
+(defconstant +ENABLE-ECHO-INPUT+ #x0004)
+(defconstant +ENABLE-INSERT-MODE+ #x0020)
+(defconstant +ENABLE-LINE-INPUT+ #x0002)
+(defconstant +ENABLE-MOUSE-INPUT+ #x0010)
+(defconstant +ENABLE-PROCESSED-INPUT+ #x0001)
+(defconstant +ENABLE-QUICK-EDIT-MODE+ #x0040)
+(defconstant +ENABLE-WINDOW-INPUT+ #x0008)
+(defconstant +ENABLE-VIRTUAL-TERMINAL-INPUT+ #x0200)
+(defconstant +enable-extended-flags+ #x0080)
+
+;; output console modes
+(defconstant +ENABLE-PROCESSED-OUTPUT+ #x0001)
+(defconstant +ENABLE-WRAP-AT-EOL-OUTPUT+ #x0002)
+(defconstant +ENABLE-VIRTUAL-TERMINAL-PROCESSING+ #x0004)
+(defconstant +DISABLE-NEWLINE-AUTO-RETURN+ #x0008)
+(defconstant +ENABLE-LVB-GRID-WORLDWIDE+ #x0010)
+
+(defconstant +TMPF-FIXED-PITCH+ 1)
+(defconstant +TMPF-VECTOR+ 2)
+(defconstant +TMPF-TRUETYPE+ 4)
+(defconstant +TMPF-DEVICE+ 8)
