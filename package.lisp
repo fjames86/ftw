@@ -440,11 +440,13 @@
        #:open-console-std-output
        #:set-console-active-screen-buffer
        #:char-info-attributes
+       #:char-info-attrs
        #:char-info
        #:string-info
        #:read-console-input
        #:read-console-output
        #:write-console-output
+       #:write-console-string 
        #:set-console-cursor-position
        #:scroll-console-screen-buffer
        #:fill-console-output-character

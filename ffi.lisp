@@ -6367,6 +6367,15 @@ on what those integers can be.
 	  (if bg-r +background-red+ 0)
 	  (if bg-intensity +background-intensity+ 0)))
 
+(defun char-info-attrs (&rest attrs)
+  "attrs ::= :fg-b :fg-g :fg-r :bg-b :bg-g :bg-r"
+  (apply #'char-info-attributes
+	 (mapcan (lambda (attr)
+		   (ecase attr
+		     ((:fg-r :fg-g :fg-b :bg-r :bg-g :bg-b :fg-intensity :bg-intensity)
+		      (list attr 't))))
+		 attrs)))
+
 (defun char-info (character &optional attrs)
   (list character (or attrs 0)))
 
@@ -6567,7 +6576,14 @@ on what those integers can be.
 				     reg)
 	(get-last-error)))))
 	    
-  
+(defun write-console-string (handle string &key (x 0) (y 0) (attrs 0))
+  (write-console-output handle
+			(if (listp string)
+			    (mapcar (lambda (s)
+				      (string-info s attrs))
+				    string)
+			    (string-info string attrs))
+			:x x :y y))
 
 ;; BOOL WINAPI SetConsoleCursorPosition(
 ;;   _In_ HANDLE hConsoleOutput,

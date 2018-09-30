@@ -24,7 +24,11 @@
 	 (col 0 (1+ col))
 	 (line-start 0)
 	 (line-break 0))
-	((= i (length text)))
+	((= i (length text))
+	 (push (concatenate 'string
+			    (subseq text line-start)
+			    (loop :for i :below (- width col) :collect #\space))
+	       lines))
       (when (or (= i (1- (length text)))
 		(char= (char text i) #\space)
 		(char= (char text i) #\return)
@@ -58,6 +62,13 @@
 (defparameter *lorem-ipsum*
   "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.")
 
+(defun write-left-panel (output string)
+  (write-console-string output
+			(justify-text string (truncate +width+ 3))
+			:x 2 :y 2
+			:attrs (char-info-attrs :fg-r :bg-r :bg-g :bg-b)))
+
+
 (defun console ()
   (init-console)
   (set-console-title "Lisp Console Program")
@@ -79,44 +90,37 @@
     
     (fill-console-output-character out #\space 0 0 (* +width+ +height+))
     (fill-console-output-attribute out
-				   (char-info-attributes :bg-b t :bg-r t :bg-g t)
+				   (char-info-attrs :bg-b :bg-r :bg-g)
 				   0 0 (* (1- +height+) +width+))
 
     (fill-console-output-attribute out
-				   (char-info-attributes :bg-b t)
+				   (char-info-attrs :bg-b)
 				   0 (1- +height+) +width+)
 
     (write-console-output out
 			  (list (string-info "Package"
-					     (char-info-attributes
-					      :fg-r t :bg-r t :bg-g t :bg-b t)))
+					     (char-info-attrs :fg-r :bg-r :bg-g :bg-b)))
 			  :x 20 :y 1)
-    (write-console-output out
-			  (mapcar (lambda (l)
-				    (string-info l
-						 (char-info-attributes
-						  :fg-r t :bg-r t :bg-g t :bg-b t)))
-				  (justify-text *lorem-ipsum* (truncate +width+ 3)))
-			  :x 2 :y 2)
+
+    (write-left-panel out *lorem-ipsum*)
 						 
     
     (do ((row 2 (1+ row)))
 	((= row (- +height+ 2)))
       (fill-console-output-attribute out
-				     (char-info-attributes :bg-b t :bg-g t)
+				     (char-info-attrs :bg-b :bg-g)
 				     2 row
 				     (- (truncate +width+ 2) 5)))
 
     (write-console-output out
 			  (list (string-info "Symbol"
-					     (char-info-attributes :fg-r t :bg-r t :bg-g t :bg-b t)))
+					     (char-info-attrs :fg-r :bg-r :bg-g :bg-b)))
 			  :x 70 :y 1)
     
     (do ((row 2 (1+ row)))
 	((= row (- +height+ 2)))
       (fill-console-output-attribute out
-				     (char-info-attributes :bg-b t
-							   :bg-g t)
+				     (char-info-attrs :bg-b :bg-g)
 				     53 row (- (truncate +width+ 2) 5)))
     
 
@@ -125,10 +129,7 @@
     (mapc (lambda (name x)
 	    (write-console-output out
 				  (list (string-info name
-						     (char-info-attributes 
-						     :fg-b t :fg-g t :fg-r t
-						     :fg-intensity t
-						     :bg-b t)))
+						     (char-info-attrs :fg-b :fg-g :fg-r	:fg-intensity :bg-b)))
 				  :x x :y (1- +height+)))
 	  '("Search F1" "Exit F2")
 	  '(5 25))
@@ -143,7 +144,7 @@
 		   (keydown (getf (cdr event) 'ftw::keydown)))
 	       (unless keydown
 		 (switch vkey
-		   (ftw::+vk-f1+ nil)
+		   (ftw::+vk-f1+ (write-left-panel out "F1 "))
 		   (ftw::+vk-f2+ (setf done t)))))))))))
 
   (show-window (get-console-window) :hide))
