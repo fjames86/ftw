@@ -7163,3 +7163,23 @@ on what those integers can be.
     (get-last-error)))
 
   
+;; COLORREF SetDCPenColor(
+;;   HDC      hdc,
+;;   COLORREF color
+;; );
+(defcfun (%set-dc-pen-color "SetDCPenColor" :convention :stdcall) :uint32 
+  (hdc :pointer)
+  (color :uint32))
+
+(defun set-dc-pen-color (hdc colour)
+  (%set-dc-pen-color hdc colour))
+
+
+;; COLORREF GetDCPenColor(
+;;   HDC hdc
+;; );
+(defcfun (%get-dc-pen-color "GetDCPenColor" :convention :stdcall) :uint32
+  (hdc :pointer))
+
+(defun get-dc-pen-color (hdc)
+  (%get-dc-pen-color hdc))

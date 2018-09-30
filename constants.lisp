@@ -3167,3 +3167,6 @@
 (defconstant +TMPF-VECTOR+ 2)
 (defconstant +TMPF-TRUETYPE+ 4)
 (defconstant +TMPF-DEVICE+ 8)
+
+(defconstant +dc-brush+ 18)
+(defconstant +dc-pen+ 19)

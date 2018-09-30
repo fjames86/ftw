@@ -3,6 +3,14 @@
 
 ;;; This file defines a simple little turtle type program.
 ;;; Users should be able program its movements like you would with Logo.
+;;;
+;;; Commands:
+;;; move <integer>
+;;; left <angle in degrees>
+;;; right <angle in degrees>
+;;; colour <red|green|blue|yellow|white|black>
+;;; up ;; set pen up, i.e. don't draw lines
+;;; down ;; set pen down, i.e. draw lines as turtle moves
 
 (eval-when (:load-toplevel :compile-toplevel :execute)
   (ql:quickload "parse-number"))
@@ -33,7 +41,7 @@
 (defun radians-degrees (radians)
   (* radians (/ 360.0 +2pi+)))
 
-;; turtle commnads
+;; turtle commands
 (defun turtle-right (theta &optional (turtle *turtle*))
   (setf (turtle-theta turtle)
         (+ (turtle-theta turtle) theta)))
@@ -50,6 +58,7 @@
     ;; draw line if pen up
     (when (turtle-pen-p turtle)
       (move-to (turtle-hdc turtle) x y)
+      (select-object (turtle-hdc turtle) (get-stock-object :dc-pen))
       (line-to (turtle-hdc turtle) (turtle-x turtle) (turtle-y turtle)))))
 (defun turtle-pen-up (&optional (turtle *turtle*))
   (setf (turtle-pen-p turtle) nil))
@@ -57,13 +66,17 @@
   (setf (turtle-pen-p turtle) t))
 (defun set-turtle-pen (pen &optional (turtle *turtle*))
   (setf (turtle-pen turtle) pen)
-  (select-object (turtle-hdc turtle) pen))
+  (set-dc-pen-color (turtle-hdc turtle) pen))
+    
+
 
 
 (defun draw-turtle (&optional (turtle *turtle*))
   "The turtle is a triangle with two smaller triangles for legs"
   (let ((hdc (turtle-hdc turtle))
         (theta (degrees-radians (turtle-theta turtle))))
+    (select-object (turtle-hdc turtle) (get-stock-object :white-pen))
+
     ;; move out to leading vertex of turtle
     (move-to hdc
              (+ (turtle-x turtle) (* +turtle-size+ (cos theta)))
@@ -101,19 +114,22 @@
       (up (turtle-pen-up turtle))
       (down (turtle-pen-down turtle))
       ((color colour)
-       (let ((name (car args)))
-         (cond
-           ((keywordp name)
-            (ecase name
-              (:blue (encode-rgb 0 0 255))
-              (:green (encode-rgb 0 255 0))
-              (:red (encode-rgb 255 0 0))
-              (:yellow (encode-rgb 255 255 0))
-              (:white (encode-rgb 255 255 255))
-              (:black (encode-rgb 0 0 0))))
-           (t
-            (destructuring-bind (r g b) args
-              (encode-rgb r g b))))))))
+       (set-turtle-pen 
+	(let ((name (car args)))
+	  (cond
+	    ((keywordp name)
+	     (ecase name
+	       (:blue (encode-rgb 0 0 255))
+	       (:green (encode-rgb 0 255 0))
+	       (:red (encode-rgb 255 0 0))
+	       (:yellow (encode-rgb 255 255 0))
+	       (:white (encode-rgb 255 255 255))
+	       (:black (encode-rgb 0 0 0))))
+	    (t
+	     (destructuring-bind (r g b) args
+	       (encode-rgb r g b)))))
+	turtle))))
+
   (setf (turtle-prev-commands turtle)
         (append (turtle-prev-commands turtle) (list command))))
 
@@ -138,7 +154,23 @@
         ((string-equal (subseq string 0 index) "up")
          (list 'up))
         ((string-equal (subseq string 0 index) "down")
-         (list 'down))))))
+         (list 'down))
+	((or (string-equal (subseq string 0 index) "colour")
+	     (string-equal (subseq string 0 index) "color"))
+	 (let* ((c :white)
+		(pos (position #\space string))
+		(cstr (string-trim '(#\space #\return #\newline) (subseq string (1+ (or pos index))))))
+	   (setf c 
+		 (cond
+		   ((string-equal cstr "white") :white)
+		   ((string-equal cstr "black") :black)
+		   ((string-equal cstr "yellow") :yellow)
+		   ((string-equal cstr "blue") :blue)
+		   ((string-equal cstr "green") :green)
+		   ((string-equal cstr "red") :red)
+		   (t :white)))
+	   (list 'colour c)))))))
+	  
 
 (defun parse-turtle-commands (string)
   (with-input-from-string (s string)
@@ -216,6 +248,7 @@
 (defparameter *turtle-wnd* nil)
 (defparameter *turtle-button* nil)
 (defparameter *turtle-reset* nil)
+(defparameter *turtle-help* nil)
 
 (defun turtle-label-text ()
   (format nil "X ~,3F Y ~,3F THETA ~,3F ~A"
@@ -248,7 +281,8 @@
     ;; edit control on right for entering command s
     (setf *turtle-edit*
           (create-window :edit
-                         :styles (logior-consts +ws-visible+ +ws-child+ +es-multiline+)
+                         :styles (logior ftw::+ws-visible+ ftw::+ws-child+ ftw::+es-multiline+ ftw::+ws-border+)
+			 :ex-styles ftw::+ws-ex-clientedge+
                          :x (- right 225) :y 25 :width 200 :height (- bottom 150)
                          :parent hwnd
                          :menu 1))
@@ -266,7 +300,16 @@
                          :styles (logior-consts +ws-visible+ +ws-child+)
                          :x (- right 200) :y (- bottom 50) :width 25 :height 25
                          :parent hwnd
-                         :menu 3))))
+                         :menu 3)
+	  *turtle-help* 
+	  (create-window :button
+			 :window-name "Help"
+			 :styles (logior ftw::+ws-visible+ ftw::+ws-child+)
+			 :x (- right 220) :y (- bottom 50) :width 25 :height 25
+			 :parent hwnd
+			 :menu 4))
+
+    (set-focus *turtle-edit*)))
 
 (defun turtle-resize (hwnd)
   (destructuring-bind (&key left top right bottom) (get-client-rect hwnd)
@@ -279,6 +322,8 @@
       (set-window-pos *turtle-button* :top (- right 185) (- bottom 50) 75 25))
     (when *turtle-reset*
       (set-window-pos *turtle-reset* :top (- right 100) (- bottom 50) 75 25))
+    (when *turtle-help*
+      (set-window-pos *turtle-help* :top (- right 225) 25 75 25))
     (when *turtle-label*
       (set-window-text *turtle-label* (turtle-label-text)))))
 
@@ -308,8 +353,23 @@
         (destructuring-bind (&key left top (right 0) (bottom 0)) (get-client-rect hwnd)
           (declare (ignore left top))
           (setf *turtle* (make-turtle :x (truncate right 2) :y (truncate bottom 2) :theta 0 :pen-p t)))
-        (invalidate-rect *turtle-wnd* nil t)))))
-             
+        (invalidate-rect *turtle-wnd* nil t))
+       (4 ;;help
+	(message-box :hwnd hwnd
+		     :text 
+		     (format nil "
+Turtle program. Type commands into the text box and press Done.
+Commands:
+move <integer>
+left <angle in degrees>
+right <angle in degrees>
+colour <red|green|blue|yellow|white|black>
+up
+down
+
+")
+                     :caption "Help"
+		     :icon :information)))))             
   (default-window-proc hwnd msg wparam lparam))
 
 (defun turtle ()
