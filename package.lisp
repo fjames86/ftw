@@ -476,8 +476,10 @@
        #:get-current-console-font
        #:set-current-console-font
        #:set-console-screen-buffer-size
-       
-	   ))
+       #:set-dc-pen-color 
+       #:get-dc-pen-color 
+
+       ))
 
 
 
