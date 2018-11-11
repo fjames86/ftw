@@ -415,14 +415,15 @@ For examples see examples/printer.
     (set-default-font h font)
     h))
 
-(defun create-button (text &key parent styles font x y width height)
+(defun create-button (text &key parent styles font x y width height menu)
   (let ((h (create-window :button
 			  :window-name text 
 			  :styles (cond
 				    (styles styles)
 				    (parent (logior ftw::+ws-visible+ ftw::+ws-child+)))
 			  :x x :y y :width width :height height
-			  :parent parent)))
+			  :parent parent
+			  :menu menu)))
     (set-default-font h font)
     h))
 
