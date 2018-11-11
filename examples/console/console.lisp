@@ -1,6 +1,16 @@
+;;;; Copyright (c) Frank James 2018 <frank.a.james@gmail.com>
+;;;; This code is licensed under the MIT license.
+
+;;; This shows how to use the console API. This gives us something
+;;; similar to curses for the windows console. The example below
+;;; just draws two regions with a function key bar at the bottom.
+;;; The left hand panel shows some example text (lorem ipsum), I
+;;; never got round to making the right hand side do anything.
+
 
 (defpackage #:ftw.console
-  (:use #:cl #:ftw))
+  (:use #:cl #:ftw)
+  (:export #:console))
 
 (in-package #:ftw.console)
 
