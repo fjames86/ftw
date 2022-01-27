@@ -413,7 +413,13 @@ Copyright (c) Frank James 2016.
   (default-window-proc hwnd msg wparam lparam))
 
 
-(defun climage ()
+(defun climage (&key background-thread-p)
+  "Run the CLIMAGE GUI.
+BACKGROUND-THREAD-P ::= if this is true then the GUI is run from a background thread."
+  (when background-thread-p
+    (bt:make-thread #'climage :name "CLIMAGE")
+    (return-from climage nil))
+  
   (register-class "CLIMAGE" 
                   (callback climage-wndproc)
                   :background (get-sys-color-brush :3d-face)
