@@ -2391,7 +2391,14 @@ of this function so that users preferences are presented back to them.
   (obj :pointer))
 
 (defun select-object (hdc obj)
-  (%select-object hdc obj))
+  (let ((res (%select-object hdc obj)))
+    (cond
+      ((null-pointer-p res)
+       (get-last-error))
+      ((= (pointer-address handle) #xffffffffffffffff)
+       (get-last-error))
+      (t
+       res))))
 
 (defcfun (%delete-object "DeleteObject" :convention :stdcall) :boolean
   (obj :pointer))
