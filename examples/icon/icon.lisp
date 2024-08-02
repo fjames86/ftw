@@ -176,9 +176,7 @@
 ;; I made a simple little icon with gimp and saved it as a 32-bit (8-bit alpha)
 ;; icon. Then generated the resource and pasted it below.
 
-(defvar *test-icon3*
-        (create-icon 32 32 1 32
-                     (make-array 4224 :element-type '(unsigned-byte 8))
+(defparameter *test-icon3-data*
                      #(#xFF #xFF #xFF #x00 #xFF #xFF #xFF #x00 #xFF #xFF #xFF #x00 #xFF #xFF #xFF #x00 
                         #xFF #xFF #xFF #x00 #xFF #xFF #xFF #x00 #xFF #xFF #xFF #x00 #xFF #xFF #xFF #x00 
                         #xFF #xFF #xFF #x00 #xFF #xFF #xFF #x00 #xFF #xFF #xFF #x00 #xFF #xFF #xFF #x00 
@@ -442,7 +440,11 @@
                         #x0F #x00 #x00 #x7F #x0F #x80 #x00 #x7F #xBF #x81 #xE0 #x7F #xFF #x80 #x00 #xFF 
                         #xFF #xC0 #x01 #xFF #xFC #x00 #x00 #xFF #xF8 #x00 #x00 #x7F #xF0 #x00 #x00 #x3F 
                         #xF0 #x00 #x30 #x1F #xF8 #x0F #xFC #x0F #xFC #x3F #xFE #x1F #xFF #xFF #xFF #x3F 
-                        #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF )))
+                        #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF #xFF ))
+(defun make-test-icon3 ()
+  (create-icon 32 32 1 32
+               (make-array 4224 :element-type '(unsigned-byte 8))
+	       *test-icon3-data*))
 
 ;; I made a little image in gimp and exported as bitmap with
 ;; no color table and format 32-bit a8 r8 g8 b8.
@@ -450,8 +452,7 @@
 ;; code below. In a real project you'd put all your resources in a single
 ;; file e.g. resources.lisp which would get loaded as a part of your asd. 
 
-(defvar *TEST2-BITMAP*
-        (create-bitmap-resource 32 32 1 32
+(defvar *TEST2-BITMAP-DATA*
 #(         #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00 
                          #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00 
                          #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00 
@@ -722,11 +723,15 @@
                          #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00 
                          #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00 
                          #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00 
-                         #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00 )))
+  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00  #x00 #x00 #x00 #x00 ))
+
+(defun make-test2-bitmap ()
+  (create-bitmap-resource 32 32 1 32 *test2-bitmap-data*))
 
 
 
-(defparameter *test3-bitmap*
+
+(defun make-test3-bitmap ()
   (create-bitmap-resource 256 256 1 32
 			  (make-array (* 256 256 4)
 				      :element-type '(unsigned-byte 8)
@@ -742,7 +747,7 @@
 (defwndproc test-icon3-wndproc (hwnd msg wparam lparam)
   (switch msg
     ((const +wm-create+)
-     (set-class-pointer hwnd :icon *test-icon3*)
+     (set-class-pointer hwnd :icon (make-test-icon3))
      (let ((h (create-window :static
 			     :x 100 :y 100 :width 100 :height 100
 			     :styles (logior-consts +ws-visible+ +ws-child+ +ss-bitmap+)
@@ -751,15 +756,15 @@
 	 (set-bk-mode hdc :transparent)
 	 (set-bk-color hdc (get-sys-color :3d-face)))
        
-       (send-message h (const +stm-setimage+) 0 *test3-bitmap*)))
+       (send-message h (const +stm-setimage+) 0 (make-test3-bitmap))))
     ((const +wm-destroy+)
      (post-quit-message))
     ((const +wm-paint+)
      (with-paint (hwnd hdc)
-       (draw-icon hdc 50 50 *test-icon3*)
+       (draw-icon hdc 50 50 (make-test-icon3))
        (with-compatible-dc (hdc-mem hdc)
 	 ;; select bitmap into memory dc 
-	 (select-object hdc-mem *test2-bitmap*)
+	 (select-object hdc-mem (make-test2-bitmap))
 
 	 ;; alpha blend the bitmap onto the main window
 	 ;; It's a 32x32 bitmap but we draw 200x200 so it should look pixelated

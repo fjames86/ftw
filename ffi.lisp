@@ -2395,7 +2395,7 @@ of this function so that users preferences are presented back to them.
     (cond
       ((null-pointer-p res)
        (get-last-error))
-      ((= (pointer-address handle) #xffffffffffffffff)
+      ((= (pointer-address res) #xffffffffffffffff)
        (get-last-error))
       (t
        res))))
