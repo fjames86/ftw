@@ -8,10 +8,10 @@
   :license "MIT"
   :serial t
   :components
-  ((:file "package")
-   (:file "constants")
-   (:file "ffi")
-   (:file "ftw"))
+  ((:file "package" :if-feature :windows)
+   (:file "constants" :if-feature :windows)
+   (:file "ffi" :if-feature :windows)
+   (:file "ftw" :if-feature :windows))
   :depends-on (:cffi :alexandria :nibbles))
 
 
